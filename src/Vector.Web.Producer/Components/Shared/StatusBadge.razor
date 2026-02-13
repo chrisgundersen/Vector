@@ -1,0 +1,22 @@
+@namespace Vector.Web.Producer.Components.Shared
+
+<span class="badge @GetBadgeClass()">@Status</span>
+
+@code {
+    [Parameter]
+    public string Status { get; set; } = string.Empty;
+
+    private string GetBadgeClass() => Status switch
+    {
+        "Draft" => "bg-secondary",
+        "Received" => "bg-info",
+        "InReview" => "bg-primary",
+        "PendingInformation" => "bg-warning text-dark",
+        "Quoted" => "bg-success",
+        "Declined" => "bg-danger",
+        "Bound" => "bg-success",
+        "Withdrawn" => "bg-secondary",
+        "Expired" => "bg-dark",
+        _ => "bg-secondary"
+    };
+}

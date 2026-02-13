@@ -4,6 +4,7 @@ using Vector.Domain.Common;
 using Vector.Domain.DocumentProcessing.Aggregates;
 using Vector.Domain.EmailIntake.Aggregates;
 using Vector.Domain.Routing.Aggregates;
+using Vector.Domain.Routing.Entities;
 using Vector.Domain.Submission.Aggregates;
 using Vector.Domain.Submission.Entities;
 using Vector.Domain.UnderwritingGuidelines.Aggregates;
@@ -23,6 +24,8 @@ public class VectorDbContext(
     public DbSet<UnderwritingGuideline> UnderwritingGuidelines => Set<UnderwritingGuideline>();
     public DbSet<RoutingRule> RoutingRules => Set<RoutingRule>();
     public DbSet<RoutingDecision> RoutingDecisions => Set<RoutingDecision>();
+    public DbSet<ProducerUnderwriterPairing> ProducerUnderwriterPairings => Set<ProducerUnderwriterPairing>();
+    public DbSet<DataCorrectionRequest> DataCorrectionRequests => Set<DataCorrectionRequest>();
 
     private Guid? CurrentTenantId => currentUserService.TenantId;
 

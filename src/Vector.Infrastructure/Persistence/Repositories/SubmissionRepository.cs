@@ -128,4 +128,46 @@ public class SubmissionRepository(VectorDbContext context) : ISubmissionReposito
 
         return $"{prefix}{nextNumber:D6}";
     }
+
+    public async Task<(IReadOnlyList<Submission> Submissions, int TotalCount)> SearchAsync(
+        Guid tenantId,
+        Guid? producerId,
+        SubmissionStatus? status,
+        string? searchTerm,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        var query = context.Submissions
+            .IgnoreQueryFilters()
+            .Where(s => s.TenantId == tenantId);
+
+        if (producerId.HasValue)
+        {
+            query = query.Where(s => s.ProducerId == producerId.Value);
+        }
+
+        if (status.HasValue)
+        {
+            query = query.Where(s => s.Status == status.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var term = searchTerm.ToLower();
+            query = query.Where(s =>
+                s.SubmissionNumber.ToLower().Contains(term) ||
+                s.Insured.Name.ToLower().Contains(term));
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var submissions = await query
+            .OrderByDescending(s => s.ReceivedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return (submissions, totalCount);
+    }
 }

@@ -17,7 +17,8 @@ public sealed record SubmissionDto(
     int? DataQualityScore,
     IReadOnlyList<CoverageDto> Coverages,
     IReadOnlyList<ExposureLocationDto> Locations,
-    int LossCount);
+    IReadOnlyList<LossHistoryDto> Losses,
+    decimal? TotalIncurredLosses);
 
 public sealed record InsuredPartyDto(
     Guid Id,

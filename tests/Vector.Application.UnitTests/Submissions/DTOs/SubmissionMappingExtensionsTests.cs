@@ -87,7 +87,7 @@ public class SubmissionMappingExtensionsTests
         dto.DataQualityScore.Should().Be(90);
         dto.Coverages.Should().HaveCount(1);
         dto.Locations.Should().HaveCount(1);
-        dto.LossCount.Should().Be(1);
+        dto.Losses.Should().HaveCount(1);
     }
 
     [Fact]
@@ -248,7 +248,7 @@ public class SubmissionMappingExtensionsTests
         dto.DataQualityScore.Should().BeNull();
         dto.Coverages.Should().BeEmpty();
         dto.Locations.Should().BeEmpty();
-        dto.LossCount.Should().Be(0);
+        dto.Losses.Should().BeEmpty();
     }
 
     [Fact]

@@ -1,0 +1,95 @@
+@page "/"
+@attribute [Authorize]
+
+<PageTitle>Producer Portal - Vector</PageTitle>
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>Welcome to Vector Producer Portal</h1>
+            <p class="lead text-muted">
+                Track your insurance submissions, respond to information requests, and monitor the status of your accounts.
+            </p>
+        </div>
+    </div>
+
+    <AuthorizeView>
+        <Authorized>
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <span class="bi bi-file-earmark-text me-2"></span>
+                                My Submissions
+                            </h5>
+                            <p class="card-text">
+                                View and track all your insurance submission requests. Monitor status updates,
+                                view scoring details, and respond to information requests.
+                            </p>
+                            <a href="/submissions" class="btn btn-primary">View Submissions</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <span class="bi bi-exclamation-circle me-2"></span>
+                                Action Required
+                            </h5>
+                            <p class="card-text">
+                                Submissions requiring your attention. Provide missing information or
+                                review data corrections to keep your submissions moving.
+                            </p>
+                            <a href="/submissions?status=PendingInformation" class="btn btn-warning">Review Pending</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card border-info">
+                        <div class="card-header bg-info text-white">
+                            Quick Stats
+                        </div>
+                        <div class="card-body">
+                            <p class="mb-2">
+                                <strong>Logged in as:</strong><br/>
+                                @context.User.Identity?.Name
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header">
+                            Getting Started
+                        </div>
+                        <div class="card-body">
+                            <ul class="list-unstyled mb-0">
+                                <li class="mb-2">
+                                    <span class="bi bi-check-circle text-success me-2"></span>
+                                    Submit insurance applications via email to your assigned inbox
+                                </li>
+                                <li class="mb-2">
+                                    <span class="bi bi-check-circle text-success me-2"></span>
+                                    Submissions are automatically processed and scored
+                                </li>
+                                <li class="mb-2">
+                                    <span class="bi bi-check-circle text-success me-2"></span>
+                                    Track status and respond to requests in this portal
+                                </li>
+                                <li class="mb-2">
+                                    <span class="bi bi-check-circle text-success me-2"></span>
+                                    Receive notifications when status changes occur
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </Authorized>
+    </AuthorizeView>
+</div>

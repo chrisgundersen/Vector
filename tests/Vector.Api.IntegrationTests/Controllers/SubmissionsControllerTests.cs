@@ -227,5 +227,6 @@ public class SubmissionsControllerTests
             DataQualityScore: null,
             Coverages: Array.Empty<CoverageDto>(),
             Locations: Array.Empty<ExposureLocationDto>(),
-            LossCount: 0);
+            Losses: Array.Empty<LossHistoryDto>(),
+            TotalIncurredLosses: null);
 }

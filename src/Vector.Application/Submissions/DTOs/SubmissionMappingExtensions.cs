@@ -25,7 +25,8 @@ public static class SubmissionMappingExtensions
             submission.DataQualityScore,
             submission.Coverages.Select(c => c.ToDto()).ToList(),
             submission.Locations.Select(l => l.ToDto()).ToList(),
-            submission.LossCount);
+            submission.LossHistory.Select(l => l.ToDto()).ToList(),
+            submission.TotalIncurredLosses?.Amount);
     }
 
     public static InsuredPartyDto ToDto(this InsuredParty insured)

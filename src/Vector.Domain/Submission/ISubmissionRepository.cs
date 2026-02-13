@@ -38,4 +38,16 @@ public interface ISubmissionRepository : IRepository<Aggregates.Submission>
     /// Generates the next submission number for a tenant.
     /// </summary>
     Task<string> GenerateSubmissionNumberAsync(Guid tenantId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Searches submissions with filtering and pagination.
+    /// </summary>
+    Task<(IReadOnlyList<Aggregates.Submission> Submissions, int TotalCount)> SearchAsync(
+        Guid tenantId,
+        Guid? producerId,
+        SubmissionStatus? status,
+        string? searchTerm,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default);
 }

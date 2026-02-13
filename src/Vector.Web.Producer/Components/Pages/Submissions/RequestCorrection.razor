@@ -1,0 +1,273 @@
+@page "/submissions/{Id:guid}/request-correction"
+@using MediatR
+@using Vector.Application.Common
+@using Vector.Application.Submissions.Commands
+@using Vector.Application.Submissions.DTOs
+@using Vector.Application.Submissions.Queries
+@using Vector.Domain.Submission.Enums
+@inject IMediator Mediator
+@inject NavigationManager Navigation
+@attribute [Authorize]
+
+<PageTitle>Request Data Correction - Vector</PageTitle>
+
+<div class="container">
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/submissions">Submissions</a></li>
+            <li class="breadcrumb-item"><a href="/submissions/@Id">@(submission?.SubmissionNumber ?? "...")</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Request Correction</li>
+        </ol>
+    </nav>
+
+    <h1 class="mb-4">Request Data Correction</h1>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center my-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (submission is null)
+    {
+        <div class="alert alert-danger">
+            <h4 class="alert-heading">Submission Not Found</h4>
+            <p>The requested submission could not be found.</p>
+            <a href="/submissions" class="btn btn-primary">Back to Submissions</a>
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Correction Details</h5>
+                    </div>
+                    <div class="card-body">
+                        @if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                                @errorMessage
+                                <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+                            </div>
+                        }
+
+                        @if (isSuccess)
+                        {
+                            <div class="alert alert-success">
+                                <h5 class="alert-heading">Correction Request Submitted</h5>
+                                <p>Your data correction request has been submitted successfully. You will be notified when it is reviewed.</p>
+                                <hr>
+                                <a href="/submissions/@Id" class="btn btn-primary">Back to Submission</a>
+                            </div>
+                        }
+                        else
+                        {
+                            <EditForm Model="@model" OnValidSubmit="HandleSubmit">
+                                <DataAnnotationsValidator />
+
+                                <div class="mb-3">
+                                    <label for="correctionType" class="form-label">Correction Type *</label>
+                                    <InputSelect id="correctionType" class="form-select" @bind-Value="model.Type">
+                                        @foreach (var type in Enum.GetValues<DataCorrectionType>())
+                                        {
+                                            <option value="@type">@FormatEnumName(type.ToString())</option>
+                                        }
+                                    </InputSelect>
+                                    <ValidationMessage For="@(() => model.Type)" />
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="fieldName" class="form-label">Field Name *</label>
+                                    <InputText id="fieldName" class="form-control" @bind-Value="model.FieldName"
+                                              placeholder="e.g., Insured Name, Policy Effective Date, Building Value" />
+                                    <div class="form-text">Enter the name of the field that needs correction</div>
+                                    <ValidationMessage For="@(() => model.FieldName)" />
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="currentValue" class="form-label">Current Value</label>
+                                    <InputText id="currentValue" class="form-control" @bind-Value="model.CurrentValue"
+                                              placeholder="The incorrect value currently shown" />
+                                    <div class="form-text">Leave blank if unknown or adding new data</div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="proposedValue" class="form-label">Corrected Value *</label>
+                                    <InputText id="proposedValue" class="form-control" @bind-Value="model.ProposedValue"
+                                              placeholder="The correct value" />
+                                    <ValidationMessage For="@(() => model.ProposedValue)" />
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="justification" class="form-label">Justification *</label>
+                                    <InputTextArea id="justification" class="form-control" rows="4"
+                                                  @bind-Value="model.Justification"
+                                                  placeholder="Explain why this correction is needed and provide any supporting information" />
+                                    <div class="form-text">Please provide details to help the underwriter verify this correction</div>
+                                    <ValidationMessage For="@(() => model.Justification)" />
+                                </div>
+
+                                <div class="d-flex gap-2">
+                                    <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+                                        @if (isSubmitting)
+                                        {
+                                            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                        }
+                                        Submit Correction Request
+                                    </button>
+                                    <a href="/submissions/@Id" class="btn btn-outline-secondary">Cancel</a>
+                                </div>
+                            </EditForm>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">Submission Info</h6>
+                    </div>
+                    <div class="card-body">
+                        <dl class="mb-0">
+                            <dt>Submission #</dt>
+                            <dd>@submission.SubmissionNumber</dd>
+                            <dt>Insured</dt>
+                            <dd>@submission.Insured.Name</dd>
+                            <dt>Status</dt>
+                            <dd><span class="badge bg-info">@submission.Status</span></dd>
+                        </dl>
+                    </div>
+                </div>
+
+                @if (existingCorrections.Any())
+                {
+                    <div class="card mt-3">
+                        <div class="card-header">
+                            <h6 class="mb-0">Existing Requests (@existingCorrections.Count)</h6>
+                        </div>
+                        <ul class="list-group list-group-flush">
+                            @foreach (var correction in existingCorrections.Take(5))
+                            {
+                                <li class="list-group-item">
+                                    <div class="d-flex justify-content-between">
+                                        <small><strong>@correction.FieldName</strong></small>
+                                        <span class="badge @GetStatusBadgeClass(correction.Status)">@correction.Status</span>
+                                    </div>
+                                    <small class="text-muted">@correction.RequestedAt.ToLocalTime().ToString("MM/dd/yyyy")</small>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private SubmissionDto? submission;
+    private IReadOnlyList<DataCorrectionDto> existingCorrections = [];
+    private CorrectionModel model = new();
+    private bool isLoading = true;
+    private bool isSubmitting;
+    private bool isSuccess;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+
+        try
+        {
+            var submissionQuery = new GetSubmissionQuery(Id);
+            submission = await Mediator.Send(submissionQuery);
+
+            if (submission is not null)
+            {
+                var correctionsQuery = new GetDataCorrectionsQuery(Id);
+                existingCorrections = await Mediator.Send(correctionsQuery);
+            }
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (submission is null) return;
+
+        isSubmitting = true;
+        errorMessage = null;
+
+        try
+        {
+            var command = new CreateDataCorrectionCommand(
+                submission.Id,
+                model.Type,
+                model.FieldName,
+                string.IsNullOrWhiteSpace(model.CurrentValue) ? null : model.CurrentValue,
+                model.ProposedValue,
+                model.Justification);
+
+            var result = await Mediator.Send(command);
+
+            if (result.IsSuccess)
+            {
+                isSuccess = true;
+            }
+            else
+            {
+                errorMessage = result.Error.Description;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An error occurred: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private string FormatEnumName(string name)
+    {
+        // Insert spaces before capital letters
+        return string.Concat(name.Select((c, i) =>
+            i > 0 && char.IsUpper(c) ? " " + c : c.ToString()));
+    }
+
+    private string GetStatusBadgeClass(string status) => status switch
+    {
+        "Pending" => "bg-warning text-dark",
+        "UnderReview" => "bg-info",
+        "Approved" => "bg-success",
+        "Rejected" => "bg-danger",
+        "Applied" => "bg-primary",
+        _ => "bg-secondary"
+    };
+
+    private class CorrectionModel
+    {
+        public DataCorrectionType Type { get; set; } = DataCorrectionType.InsuredInformation;
+        public string FieldName { get; set; } = string.Empty;
+        public string? CurrentValue { get; set; }
+        public string ProposedValue { get; set; } = string.Empty;
+        public string Justification { get; set; } = string.Empty;
+    }
+}

@@ -11,6 +11,7 @@ using Vector.Application.DocumentProcessing.Services;
 using Vector.Domain.Common;
 using Vector.Domain.DocumentProcessing;
 using Vector.Domain.EmailIntake;
+using Vector.Domain.Routing;
 using Vector.Domain.Submission;
 using Vector.Infrastructure.Caching;
 using Vector.Infrastructure.DocumentAI;
@@ -51,6 +52,10 @@ public static class DependencyInjection
         services.AddScoped<IInboundEmailRepository, InboundEmailRepository>();
         services.AddScoped<IProcessingJobRepository, ProcessingJobRepository>();
         services.AddScoped<ISubmissionRepository, SubmissionRepository>();
+        services.AddScoped<IDataCorrectionRepository, DataCorrectionRepository>();
+        services.AddScoped<IRoutingRuleRepository, RoutingRuleRepository>();
+        services.AddScoped<IRoutingDecisionRepository, RoutingDecisionRepository>();
+        services.AddScoped<IProducerUnderwriterPairingRepository, ProducerUnderwriterPairingRepository>();
 
         // Register Services
         services.AddScoped<ICurrentUserService, CurrentUserService>();

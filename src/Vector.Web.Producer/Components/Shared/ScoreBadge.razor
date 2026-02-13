@@ -1,0 +1,33 @@
+@namespace Vector.Web.Producer.Components.Shared
+
+@if (Score.HasValue)
+{
+    <span class="badge @GetScoreClass()" title="@Label">
+        @Label: @Score
+    </span>
+}
+else
+{
+    <span class="badge bg-light text-muted">@Label: --</span>
+}
+
+@code {
+    [Parameter]
+    public int? Score { get; set; }
+
+    [Parameter]
+    public string Label { get; set; } = "Score";
+
+    private string GetScoreClass()
+    {
+        if (!Score.HasValue) return "bg-light text-muted";
+
+        return Score.Value switch
+        {
+            >= 80 => "bg-success",
+            >= 60 => "bg-info",
+            >= 40 => "bg-warning text-dark",
+            _ => "bg-danger"
+        };
+    }
+}
