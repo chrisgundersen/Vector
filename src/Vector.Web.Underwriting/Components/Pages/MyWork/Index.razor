@@ -1,0 +1,257 @@
+@page "/my-work"
+@using MediatR
+@using Vector.Application.Common.Interfaces
+@using Vector.Application.Submissions.DTOs
+@using Vector.Application.Submissions.Queries
+@using Vector.Domain.Submission.Enums
+@inject IMediator Mediator
+@inject ICurrentUserService CurrentUser
+@inject NavigationManager Navigation
+@attribute [Authorize]
+
+<PageTitle>My Work - Vector</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>My Work</h1>
+        <button class="btn btn-outline-secondary" @onclick="RefreshAsync">
+            <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+        </button>
+    </div>
+
+    <ul class="nav nav-tabs mb-4">
+        <li class="nav-item">
+            <button class="nav-link @(_selectedTab == "active" ? "active" : "")"
+                    @onclick="@(() => SelectTab("active"))">
+                Active
+                @if (_activeCount > 0)
+                {
+                    <span class="badge bg-primary ms-1">@_activeCount</span>
+                }
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(_selectedTab == "pending" ? "active" : "")"
+                    @onclick="@(() => SelectTab("pending"))">
+                Pending Info
+                @if (_pendingInfoCount > 0)
+                {
+                    <span class="badge bg-warning ms-1">@_pendingInfoCount</span>
+                }
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(_selectedTab == "completed" ? "active" : "")"
+                    @onclick="@(() => SelectTab("completed"))">
+                Completed
+            </button>
+        </li>
+    </ul>
+
+    @if (_loading)
+    {
+        <div class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (_filteredSubmissions.Count == 0)
+    {
+        <div class="text-center py-5">
+            <i class="bi bi-inbox fs-1 text-muted"></i>
+            <h4 class="mt-3">No submissions in this category</h4>
+            <p class="text-muted">
+                @switch (_selectedTab)
+                {
+                    case "active":
+                        @:Pick up submissions from the queue to start working.
+                        break;
+                    case "pending":
+                        @:No submissions are waiting for information.
+                        break;
+                    case "completed":
+                        @:You haven't completed any submissions yet.
+                        break;
+                }
+            </p>
+            @if (_selectedTab == "active")
+            {
+                <a href="queue" class="btn btn-primary">
+                    <i class="bi bi-inbox me-1"></i>Go to Queue
+                </a>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
+            @foreach (var submission in _filteredSubmissions)
+            {
+                <div class="col">
+                    <div class="card h-100 @GetCardBorderClass(submission.Status)">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span class="fw-semibold">@submission.SubmissionNumber</span>
+                            <span class="badge @GetStatusBadgeClass(submission.Status)">
+                                @FormatStatus(submission.Status)
+                            </span>
+                        </div>
+                        <div class="card-body">
+                            <h5 class="card-title">@submission.InsuredName</h5>
+                            <div class="d-flex gap-1 mb-3">
+                                <span class="badge bg-light text-dark border" title="Appetite">
+                                    A: @(submission.AppetiteScore?.ToString() ?? "-")
+                                </span>
+                                <span class="badge bg-light text-dark border" title="Winnability">
+                                    W: @(submission.WinnabilityScore?.ToString() ?? "-")
+                                </span>
+                                <span class="badge bg-light text-dark border" title="Data Quality">
+                                    Q: @(submission.DataQualityScore?.ToString() ?? "-")
+                                </span>
+                            </div>
+                            <ul class="list-unstyled small text-muted">
+                                <li><i class="bi bi-building me-2"></i>@submission.LocationCount locations</li>
+                                <li><i class="bi bi-shield me-2"></i>@submission.CoverageCount coverages</li>
+                                <li><i class="bi bi-currency-dollar me-2"></i>TIV: @FormatCurrency(submission.TotalInsuredValue)</li>
+                            </ul>
+                        </div>
+                        <div class="card-footer bg-transparent">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted">
+                                    <i class="bi bi-clock me-1"></i>@GetTimeAgo(submission.ReceivedAt)
+                                </small>
+                                <a href="submissions/@submission.Id" class="btn btn-sm btn-outline-primary">
+                                    View Details
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private bool _loading = true;
+    private List<SubmissionSummaryDto> _allSubmissions = [];
+    private List<SubmissionSummaryDto> _filteredSubmissions = [];
+    private string _selectedTab = "active";
+    private int _activeCount;
+    private int _pendingInfoCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSubmissionsAsync();
+    }
+
+    private async Task LoadSubmissionsAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        try
+        {
+            // Get all submissions assigned to current user
+            var result = await Mediator.Send(new GetSubmissionsQuery
+            {
+                Page = 1,
+                PageSize = 100 // Get all for current user
+            });
+
+            if (result.IsSuccess && result.Value is not null)
+            {
+                // Filter to only current user's assigned submissions
+                _allSubmissions = result.Value.Items
+                    .Where(s => s.AssignedUnderwriterName is not null)
+                    .ToList();
+
+                _activeCount = _allSubmissions.Count(s =>
+                    s.Status == "UnderReview" || s.Status == "Scored");
+                _pendingInfoCount = _allSubmissions.Count(s =>
+                    s.Status == "InformationRequested");
+
+                FilterSubmissions();
+            }
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void FilterSubmissions()
+    {
+        _filteredSubmissions = _selectedTab switch
+        {
+            "active" => _allSubmissions
+                .Where(s => s.Status == "UnderReview" || s.Status == "Scored")
+                .OrderByDescending(s => s.ReceivedAt)
+                .ToList(),
+            "pending" => _allSubmissions
+                .Where(s => s.Status == "InformationRequested")
+                .OrderByDescending(s => s.ReceivedAt)
+                .ToList(),
+            "completed" => _allSubmissions
+                .Where(s => s.Status == "Quoted" || s.Status == "Declined" || s.Status == "Bound")
+                .OrderByDescending(s => s.ReceivedAt)
+                .ToList(),
+            _ => _allSubmissions
+        };
+    }
+
+    private async Task RefreshAsync()
+    {
+        await LoadSubmissionsAsync();
+    }
+
+    private void SelectTab(string tab)
+    {
+        _selectedTab = tab;
+        FilterSubmissions();
+    }
+
+    private static string FormatCurrency(decimal? value) =>
+        value.HasValue ? value.Value.ToString("C0") : "-";
+
+    private static string FormatStatus(string status) => status switch
+    {
+        "UnderReview" => "Under Review",
+        "InformationRequested" => "Info Requested",
+        _ => status
+    };
+
+    private static string GetTimeAgo(DateTime dateTime)
+    {
+        var timeSpan = DateTime.UtcNow - dateTime;
+        return timeSpan switch
+        {
+            { TotalMinutes: < 60 } => $"{(int)timeSpan.TotalMinutes}m ago",
+            { TotalHours: < 24 } => $"{(int)timeSpan.TotalHours}h ago",
+            { TotalDays: < 7 } => $"{(int)timeSpan.TotalDays}d ago",
+            _ => dateTime.ToString("MMM d")
+        };
+    }
+
+    private static string GetCardBorderClass(string status) => status switch
+    {
+        "UnderReview" => "border-warning",
+        "InformationRequested" => "border-secondary",
+        "Quoted" => "border-success",
+        "Declined" => "border-danger",
+        _ => ""
+    };
+
+    private static string GetStatusBadgeClass(string status) => status switch
+    {
+        "Received" => "bg-info",
+        "Scored" => "bg-primary",
+        "UnderReview" => "bg-warning text-dark",
+        "Quoted" => "bg-success",
+        "Declined" => "bg-danger",
+        "Bound" => "bg-dark",
+        "InformationRequested" => "bg-secondary",
+        _ => "bg-light text-dark"
+    };
+}

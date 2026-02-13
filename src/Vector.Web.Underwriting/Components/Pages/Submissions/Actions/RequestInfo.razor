@@ -1,0 +1,210 @@
+@page "/submissions/{Id:guid}/request-info"
+@using MediatR
+@using Vector.Application.Submissions.Commands
+@using Vector.Application.Submissions.Queries
+@using Vector.Application.Submissions.DTOs
+@inject IMediator Mediator
+@inject NavigationManager Navigation
+@attribute [Authorize]
+
+<PageTitle>Request Information - Vector</PageTitle>
+
+@if (_loading)
+{
+    <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (_submission is null)
+{
+    <div class="alert alert-danger">
+        <h4>Submission Not Found</h4>
+        <p>The requested submission could not be found.</p>
+        <a href="queue" class="btn btn-primary">Back to Queue</a>
+    </div>
+}
+else
+{
+    <div class="container" style="max-width: 700px;">
+        <nav aria-label="breadcrumb" class="mb-3">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="submissions">Submissions</a></li>
+                <li class="breadcrumb-item"><a href="submissions/@Id">@_submission.SubmissionNumber</a></li>
+                <li class="breadcrumb-item active">Request Information</li>
+            </ol>
+        </nav>
+
+        <div class="card border-warning">
+            <div class="card-header bg-warning text-dark">
+                <h4 class="mb-0"><i class="bi bi-question-circle me-2"></i>Request Additional Information</h4>
+            </div>
+            <div class="card-body">
+                <div class="mb-4">
+                    <h5>@_submission.Insured.Name</h5>
+                    <p class="text-muted mb-0">Submission: @_submission.SubmissionNumber</p>
+                </div>
+
+                @if (_submission.DataQualityScore.HasValue && _submission.DataQualityScore < 70)
+                {
+                    <div class="alert alert-info mb-4">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Data Quality Score: @_submission.DataQualityScore</strong>
+                        <br />
+                        <small>This submission has a low data quality score. Consider requesting missing information.</small>
+                    </div>
+                }
+
+                <EditForm Model="_model" OnValidSubmit="HandleSubmit">
+                    <DataAnnotationsValidator />
+
+                    <div class="mb-3">
+                        <label class="form-label">Information Needed <span class="text-danger">*</span></label>
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="lossRuns" @bind="_model.NeedLossRuns" />
+                            <label class="form-check-label" for="lossRuns">Loss Runs (5 years)</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="sov" @bind="_model.NeedSOV" />
+                            <label class="form-check-label" for="sov">Statement of Values (SOV)</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="acord" @bind="_model.NeedACORD" />
+                            <label class="form-check-label" for="acord">ACORD Application</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="financial" @bind="_model.NeedFinancials" />
+                            <label class="form-check-label" for="financial">Financial Statements</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="expiring" @bind="_model.NeedExpiringPolicy" />
+                            <label class="form-check-label" for="expiring">Expiring Policy</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="other" @bind="_model.NeedOther" />
+                            <label class="form-check-label" for="other">Other</label>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">Additional Details <span class="text-danger">*</span></label>
+                        <InputTextArea @bind-Value="_model.Details" class="form-control" rows="4"
+                                       placeholder="Describe specifically what information is needed and why..." />
+                        <ValidationMessage For="() => _model.Details" class="text-danger" />
+                    </div>
+
+                    @if (_errorMessage is not null)
+                    {
+                        <div class="alert alert-danger">@_errorMessage</div>
+                    }
+
+                    <div class="d-flex gap-2 justify-content-end">
+                        <a href="submissions/@Id" class="btn btn-outline-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-warning" disabled="@(_submitting || !HasSelection())">
+                            @if (_submitting)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            <i class="bi bi-send me-1"></i>Send Request
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private bool _loading = true;
+    private bool _submitting;
+    private string? _errorMessage;
+    private SubmissionDto? _submission;
+    private RequestInfoModel _model = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSubmissionAsync();
+    }
+
+    private async Task LoadSubmissionAsync()
+    {
+        _loading = true;
+        try
+        {
+            _submission = await Mediator.Send(new GetSubmissionQuery(Id));
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private bool HasSelection() =>
+        _model.NeedLossRuns || _model.NeedSOV || _model.NeedACORD ||
+        _model.NeedFinancials || _model.NeedExpiringPolicy || _model.NeedOther;
+
+    private async Task HandleSubmit()
+    {
+        if (!HasSelection())
+        {
+            _errorMessage = "Please select at least one type of information needed.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_model.Details))
+        {
+            _errorMessage = "Please provide details about the information request.";
+            return;
+        }
+
+        _submitting = true;
+        _errorMessage = null;
+
+        try
+        {
+            var items = new List<string>();
+            if (_model.NeedLossRuns) items.Add("Loss Runs");
+            if (_model.NeedSOV) items.Add("SOV");
+            if (_model.NeedACORD) items.Add("ACORD");
+            if (_model.NeedFinancials) items.Add("Financials");
+            if (_model.NeedExpiringPolicy) items.Add("Expiring Policy");
+            if (_model.NeedOther) items.Add("Other");
+
+            var reason = $"Requesting: {string.Join(", ", items)}. {_model.Details}";
+
+            var result = await Mediator.Send(new RequestInformationCommand(Id, reason));
+
+            if (result.IsSuccess)
+            {
+                Navigation.NavigateTo($"/submissions/{Id}");
+            }
+            else
+            {
+                _errorMessage = result.Error.Description;
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+
+    private class RequestInfoModel
+    {
+        public bool NeedLossRuns { get; set; }
+        public bool NeedSOV { get; set; }
+        public bool NeedACORD { get; set; }
+        public bool NeedFinancials { get; set; }
+        public bool NeedExpiringPolicy { get; set; }
+        public bool NeedOther { get; set; }
+        public string? Details { get; set; }
+    }
+}

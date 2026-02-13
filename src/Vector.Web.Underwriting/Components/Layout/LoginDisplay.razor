@@ -1,0 +1,13 @@
+@inject NavigationManager Navigation
+
+<AuthorizeView>
+    <Authorized>
+        <div class="d-flex align-items-center">
+            <span class="text-light me-3">@context.User.Identity?.Name</span>
+            <a href="MicrosoftIdentity/Account/SignOut" class="btn btn-outline-light btn-sm">Sign out</a>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <a href="MicrosoftIdentity/Account/SignIn" class="btn btn-outline-light btn-sm">Sign in</a>
+    </NotAuthorized>
+</AuthorizeView>

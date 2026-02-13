@@ -1,0 +1,169 @@
+@page "/submissions/{Id:guid}/decline"
+@using MediatR
+@using Vector.Application.Submissions.Commands
+@using Vector.Application.Submissions.Queries
+@using Vector.Application.Submissions.DTOs
+@inject IMediator Mediator
+@inject NavigationManager Navigation
+@attribute [Authorize]
+
+<PageTitle>Decline Submission - Vector</PageTitle>
+
+@if (_loading)
+{
+    <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (_submission is null)
+{
+    <div class="alert alert-danger">
+        <h4>Submission Not Found</h4>
+        <p>The requested submission could not be found.</p>
+        <a href="queue" class="btn btn-primary">Back to Queue</a>
+    </div>
+}
+else
+{
+    <div class="container" style="max-width: 700px;">
+        <nav aria-label="breadcrumb" class="mb-3">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="submissions">Submissions</a></li>
+                <li class="breadcrumb-item"><a href="submissions/@Id">@_submission.SubmissionNumber</a></li>
+                <li class="breadcrumb-item active">Decline</li>
+            </ol>
+        </nav>
+
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white">
+                <h4 class="mb-0"><i class="bi bi-x-circle me-2"></i>Decline Submission</h4>
+            </div>
+            <div class="card-body">
+                <div class="mb-4">
+                    <h5>@_submission.Insured.Name</h5>
+                    <p class="text-muted mb-0">Submission: @_submission.SubmissionNumber</p>
+                </div>
+
+                <div class="alert alert-warning mb-4">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    You are about to decline this submission. This action will notify the producer and cannot be easily undone.
+                </div>
+
+                <EditForm Model="_model" OnValidSubmit="HandleSubmit">
+                    <DataAnnotationsValidator />
+
+                    <div class="mb-3">
+                        <label class="form-label">Decline Reason <span class="text-danger">*</span></label>
+                        <InputSelect @bind-Value="_model.ReasonType" class="form-select mb-2">
+                            <option value="">Select a reason...</option>
+                            <option value="Outside Appetite">Outside Appetite</option>
+                            <option value="Poor Loss History">Poor Loss History</option>
+                            <option value="Pricing">Pricing Concerns</option>
+                            <option value="Incomplete Information">Incomplete Information</option>
+                            <option value="Risk Quality">Risk Quality</option>
+                            <option value="Capacity">Capacity Constraints</option>
+                            <option value="Other">Other</option>
+                        </InputSelect>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">Additional Notes</label>
+                        <InputTextArea @bind-Value="_model.Notes" class="form-control" rows="4"
+                                       placeholder="Provide additional context for the decline..." />
+                    </div>
+
+                    @if (_errorMessage is not null)
+                    {
+                        <div class="alert alert-danger">@_errorMessage</div>
+                    }
+
+                    <div class="d-flex gap-2 justify-content-end">
+                        <a href="submissions/@Id" class="btn btn-outline-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-danger" disabled="@(_submitting || string.IsNullOrEmpty(_model.ReasonType))">
+                            @if (_submitting)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            <i class="bi bi-x-circle me-1"></i>Decline Submission
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private bool _loading = true;
+    private bool _submitting;
+    private string? _errorMessage;
+    private SubmissionDto? _submission;
+    private DeclineModel _model = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSubmissionAsync();
+    }
+
+    private async Task LoadSubmissionAsync()
+    {
+        _loading = true;
+        try
+        {
+            _submission = await Mediator.Send(new GetSubmissionQuery(Id));
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (string.IsNullOrEmpty(_model.ReasonType))
+        {
+            _errorMessage = "Please select a decline reason.";
+            return;
+        }
+
+        _submitting = true;
+        _errorMessage = null;
+
+        try
+        {
+            var reason = string.IsNullOrWhiteSpace(_model.Notes)
+                ? _model.ReasonType
+                : $"{_model.ReasonType}: {_model.Notes}";
+
+            var result = await Mediator.Send(new DeclineSubmissionCommand(Id, reason));
+
+            if (result.IsSuccess)
+            {
+                Navigation.NavigateTo($"/submissions/{Id}");
+            }
+            else
+            {
+                _errorMessage = result.Error.Description;
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+
+    private class DeclineModel
+    {
+        public string ReasonType { get; set; } = "";
+        public string? Notes { get; set; }
+    }
+}

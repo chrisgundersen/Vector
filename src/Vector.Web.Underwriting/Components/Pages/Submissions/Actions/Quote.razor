@@ -1,0 +1,188 @@
+@page "/submissions/{Id:guid}/quote"
+@using MediatR
+@using Vector.Application.Submissions.Commands
+@using Vector.Application.Submissions.Queries
+@using Vector.Application.Submissions.DTOs
+@inject IMediator Mediator
+@inject NavigationManager Navigation
+@attribute [Authorize]
+
+<PageTitle>Quote Submission - Vector</PageTitle>
+
+@if (_loading)
+{
+    <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (_submission is null)
+{
+    <div class="alert alert-danger">
+        <h4>Submission Not Found</h4>
+        <p>The requested submission could not be found.</p>
+        <a href="queue" class="btn btn-primary">Back to Queue</a>
+    </div>
+}
+else
+{
+    <div class="container" style="max-width: 700px;">
+        <nav aria-label="breadcrumb" class="mb-3">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="submissions">Submissions</a></li>
+                <li class="breadcrumb-item"><a href="submissions/@Id">@_submission.SubmissionNumber</a></li>
+                <li class="breadcrumb-item active">Quote</li>
+            </ol>
+        </nav>
+
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0"><i class="bi bi-check-circle me-2"></i>Quote Submission</h4>
+            </div>
+            <div class="card-body">
+                <div class="mb-4">
+                    <h5>@_submission.Insured.Name</h5>
+                    <p class="text-muted mb-0">Submission: @_submission.SubmissionNumber</p>
+                </div>
+
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <div class="border rounded p-3 text-center">
+                            <small class="text-muted d-block">Appetite Score</small>
+                            <span class="fs-3 fw-bold @GetScoreClass(_submission.AppetiteScore)">
+                                @(_submission.AppetiteScore?.ToString() ?? "-")
+                            </span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="border rounded p-3 text-center">
+                            <small class="text-muted d-block">Total Insured Value</small>
+                            <span class="fs-4 fw-bold">
+                                @_submission.Locations.Sum(l => l.TotalInsuredValue).ToString("C0")
+                            </span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="border rounded p-3 text-center">
+                            <small class="text-muted d-block">Coverages</small>
+                            <span class="fs-3 fw-bold">@_submission.Coverages.Count</span>
+                        </div>
+                    </div>
+                </div>
+
+                <EditForm Model="_model" OnValidSubmit="HandleSubmit">
+                    <DataAnnotationsValidator />
+
+                    <div class="mb-3">
+                        <label class="form-label">Premium Amount <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <InputNumber @bind-Value="_model.PremiumAmount" class="form-control" />
+                        </div>
+                        <ValidationMessage For="() => _model.PremiumAmount" class="text-danger" />
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">Currency</label>
+                        <InputSelect @bind-Value="_model.Currency" class="form-select">
+                            <option value="USD">USD - US Dollar</option>
+                            <option value="CAD">CAD - Canadian Dollar</option>
+                            <option value="GBP">GBP - British Pound</option>
+                            <option value="EUR">EUR - Euro</option>
+                        </InputSelect>
+                    </div>
+
+                    @if (_errorMessage is not null)
+                    {
+                        <div class="alert alert-danger">@_errorMessage</div>
+                    }
+
+                    <div class="d-flex gap-2 justify-content-end">
+                        <a href="submissions/@Id" class="btn btn-outline-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-success" disabled="@_submitting">
+                            @if (_submitting)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            <i class="bi bi-check-circle me-1"></i>Quote Submission
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private bool _loading = true;
+    private bool _submitting;
+    private string? _errorMessage;
+    private SubmissionDto? _submission;
+    private QuoteModel _model = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSubmissionAsync();
+    }
+
+    private async Task LoadSubmissionAsync()
+    {
+        _loading = true;
+        try
+        {
+            _submission = await Mediator.Send(new GetSubmissionQuery(Id));
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        _submitting = true;
+        _errorMessage = null;
+
+        try
+        {
+            var result = await Mediator.Send(new QuoteSubmissionCommand(
+                Id,
+                _model.PremiumAmount,
+                _model.Currency));
+
+            if (result.IsSuccess)
+            {
+                Navigation.NavigateTo($"/submissions/{Id}");
+            }
+            else
+            {
+                _errorMessage = result.Error.Description;
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+
+    private static string GetScoreClass(int? score) => score switch
+    {
+        >= 80 => "text-success",
+        >= 60 => "text-warning",
+        _ => "text-danger"
+    };
+
+    private class QuoteModel
+    {
+        public decimal PremiumAmount { get; set; }
+        public string Currency { get; set; } = "USD";
+    }
+}
