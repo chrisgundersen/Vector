@@ -1,0 +1,18 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Vector.Api/Vector.Api.csproj" />
+    <Project Path="src/Vector.Application/Vector.Application.csproj" />
+    <Project Path="src/Vector.Domain/Vector.Domain.csproj" />
+    <Project Path="src/Vector.Infrastructure/Vector.Infrastructure.csproj" />
+    <Project Path="src/Vector.Web.Admin/Vector.Web.Admin.csproj" />
+    <Project Path="src/Vector.Web.Producer/Vector.Web.Producer.csproj" />
+    <Project Path="src/Vector.Web.Underwriting/Vector.Web.Underwriting.csproj" />
+    <Project Path="src/Vector.Worker/Vector.Worker.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Vector.Api.IntegrationTests/Vector.Api.IntegrationTests.csproj" />
+    <Project Path="tests/Vector.Application.UnitTests/Vector.Application.UnitTests.csproj" />
+    <Project Path="tests/Vector.Domain.UnitTests/Vector.Domain.UnitTests.csproj" />
+    <Project Path="tests/Vector.Infrastructure.IntegrationTests/Vector.Infrastructure.IntegrationTests.csproj" />
+  </Folder>
+</Solution>
