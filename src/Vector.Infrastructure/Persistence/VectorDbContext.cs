@@ -3,8 +3,10 @@ using Vector.Application.Common.Interfaces;
 using Vector.Domain.Common;
 using Vector.Domain.DocumentProcessing.Aggregates;
 using Vector.Domain.EmailIntake.Aggregates;
+using Vector.Domain.Routing.Aggregates;
 using Vector.Domain.Submission.Aggregates;
 using Vector.Domain.Submission.Entities;
+using Vector.Domain.UnderwritingGuidelines.Aggregates;
 
 namespace Vector.Infrastructure.Persistence;
 
@@ -18,6 +20,9 @@ public class VectorDbContext(
     public DbSet<InboundEmail> InboundEmails => Set<InboundEmail>();
     public DbSet<ProcessingJob> ProcessingJobs => Set<ProcessingJob>();
     public DbSet<Submission> Submissions => Set<Submission>();
+    public DbSet<UnderwritingGuideline> UnderwritingGuidelines => Set<UnderwritingGuideline>();
+    public DbSet<RoutingRule> RoutingRules => Set<RoutingRule>();
+    public DbSet<RoutingDecision> RoutingDecisions => Set<RoutingDecision>();
 
     private Guid? CurrentTenantId => currentUserService.TenantId;
 
@@ -34,6 +39,9 @@ public class VectorDbContext(
 
         modelBuilder.Entity<Submission>()
             .HasQueryFilter(s => CurrentTenantId == null || s.TenantId == CurrentTenantId);
+
+        modelBuilder.Entity<UnderwritingGuideline>()
+            .HasQueryFilter(g => CurrentTenantId == null || g.TenantId == CurrentTenantId);
 
         base.OnModelCreating(modelBuilder);
     }
