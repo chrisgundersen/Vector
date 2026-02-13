@@ -25,7 +25,7 @@ public sealed class ProducerUnderwriterPairing : Entity
     {
     }
 
-    internal ProducerUnderwriterPairing(
+    private ProducerUnderwriterPairing(
         Guid id,
         Guid producerId,
         string producerName,
@@ -39,6 +39,30 @@ public sealed class ProducerUnderwriterPairing : Entity
         Priority = 100;
         IsActive = true;
         EffectiveFrom = DateTime.UtcNow;
+    }
+
+    public static ProducerUnderwriterPairing Create(
+        Guid producerId,
+        string producerName,
+        Guid underwriterId,
+        string underwriterName)
+    {
+        if (producerId == Guid.Empty)
+            throw new ArgumentException("Producer ID cannot be empty.", nameof(producerId));
+
+        ArgumentException.ThrowIfNullOrWhiteSpace(producerName, nameof(producerName));
+
+        if (underwriterId == Guid.Empty)
+            throw new ArgumentException("Underwriter ID cannot be empty.", nameof(underwriterId));
+
+        ArgumentException.ThrowIfNullOrWhiteSpace(underwriterName, nameof(underwriterName));
+
+        return new ProducerUnderwriterPairing(
+            Guid.NewGuid(),
+            producerId,
+            producerName.Trim(),
+            underwriterId,
+            underwriterName.Trim());
     }
 
     public void SetPriority(int priority)

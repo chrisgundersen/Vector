@@ -1,0 +1,84 @@
+@page "/"
+@attribute [Authorize]
+
+<PageTitle>Admin Portal - Vector</PageTitle>
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>Vector Admin Portal</h1>
+            <p class="lead text-muted">
+                Configure underwriting guidelines, routing rules, and producer-underwriter pairings.
+            </p>
+        </div>
+    </div>
+
+    <AuthorizeView>
+        <Authorized>
+            <div class="row">
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100 border-primary">
+                        <div class="card-header bg-primary text-white">
+                            Underwriting Guidelines
+                        </div>
+                        <div class="card-body">
+                            <p class="card-text">
+                                Define appetite rules and eligibility criteria that determine which submissions
+                                are acceptable for your MGU.
+                            </p>
+                            <a href="/guidelines" class="btn btn-outline-primary">Manage Guidelines</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100 border-success">
+                        <div class="card-header bg-success text-white">
+                            Routing Rules
+                        </div>
+                        <div class="card-body">
+                            <p class="card-text">
+                                Configure automated routing rules that assign submissions to underwriters
+                                based on criteria like coverage type, size, or geography.
+                            </p>
+                            <a href="/routing-rules" class="btn btn-outline-success">Manage Rules</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100 border-info">
+                        <div class="card-header bg-info text-white">
+                            Producer Pairings
+                        </div>
+                        <div class="card-body">
+                            <p class="card-text">
+                                Set up producer-underwriter pairings to ensure submissions from specific
+                                producers are routed to their designated underwriters.
+                            </p>
+                            <a href="/pairings" class="btn btn-outline-info">Manage Pairings</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            Quick Stats
+                        </div>
+                        <div class="card-body">
+                            <p class="mb-2">
+                                <strong>Logged in as:</strong> @context.User.Identity?.Name
+                            </p>
+                            <p class="mb-0">
+                                <strong>Role:</strong> Administrator
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </Authorized>
+    </AuthorizeView>
+</div>

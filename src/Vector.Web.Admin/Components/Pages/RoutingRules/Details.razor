@@ -1,0 +1,346 @@
+@page "/routing-rules/{Id:guid}"
+@attribute [Authorize]
+@using MediatR
+@using Vector.Application.Routing.Commands
+@using Vector.Application.Routing.DTOs
+@using Vector.Application.Routing.Queries
+@inject IMediator Mediator
+@inject NavigationManager Navigation
+
+<PageTitle>Routing Rule Details - Vector Admin</PageTitle>
+
+<div class="container-fluid">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/routing-rules">Routing Rules</a></li>
+            <li class="breadcrumb-item active">@(rule?.Name ?? "Loading...")</li>
+        </ol>
+    </nav>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (rule is null)
+    {
+        <div class="alert alert-danger">
+            Routing rule not found.
+            <a href="/routing-rules">Return to routing rules list</a>.
+        </div>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div class="alert alert-success alert-dismissible fade show">
+                @successMessage
+                <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger alert-dismissible fade show">
+                @errorMessage
+                <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+            </div>
+        }
+
+        <div class="row mb-4">
+            <div class="col">
+                <div class="d-flex align-items-center gap-3">
+                    <h1 class="mb-0">@rule.Name</h1>
+                    <span class="badge @GetStatusBadgeClass(rule.Status) fs-6">@rule.Status</span>
+                </div>
+                @if (!string.IsNullOrEmpty(rule.Description))
+                {
+                    <p class="text-muted mt-2">@rule.Description</p>
+                }
+            </div>
+            <div class="col-auto">
+                <div class="btn-group">
+                    @if (rule.Status == "Draft" || rule.Status == "Inactive")
+                    {
+                        <button class="btn btn-success" @onclick="ActivateRule" disabled="@isProcessing">
+                            <i class="bi bi-check-circle"></i> Activate
+                        </button>
+                    }
+                    @if (rule.Status == "Active")
+                    {
+                        <button class="btn btn-warning" @onclick="DeactivateRule" disabled="@isProcessing">
+                            <i class="bi bi-pause-circle"></i> Deactivate
+                        </button>
+                    }
+                    @if (rule.Status != "Archived")
+                    {
+                        <button class="btn btn-outline-danger" @onclick="DeleteRule" disabled="@isProcessing">
+                            <i class="bi bi-archive"></i> Archive
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-8">
+                <!-- Conditions Section -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Conditions (@rule.Conditions.Count)</h5>
+                    </div>
+                    <div class="card-body">
+                        @if (rule.Conditions.Count == 0)
+                        {
+                            <div class="text-center py-4 text-muted">
+                                <i class="bi bi-filter fs-1"></i>
+                                <p class="mt-2">No conditions defined.</p>
+                                <p class="small">This rule will match all submissions.</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Field</th>
+                                            <th>Operator</th>
+                                            <th>Value</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var condition in rule.Conditions)
+                                        {
+                                            <tr>
+                                                <td><code>@condition.Field</code></td>
+                                                <td>@condition.Operator</td>
+                                                <td>
+                                                    @condition.Value
+                                                    @if (!string.IsNullOrEmpty(condition.SecondaryValue))
+                                                    {
+                                                        <span class="text-muted">to @condition.SecondaryValue</span>
+                                                    }
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <!-- Rule Info Card -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0">Rule Information</h6>
+                    </div>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">Priority</span>
+                            <strong>@rule.Priority</strong>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">Strategy</span>
+                            <span class="badge @GetStrategyBadgeClass(rule.Strategy)">@rule.Strategy</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">Created</span>
+                            <strong>@rule.CreatedAt.ToString("MMM d, yyyy")</strong>
+                        </li>
+                        @if (rule.LastModifiedAt.HasValue)
+                        {
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span class="text-muted">Last Modified</span>
+                                <strong>@rule.LastModifiedAt.Value.ToString("MMM d, yyyy")</strong>
+                            </li>
+                        }
+                    </ul>
+                </div>
+
+                <!-- Target Card -->
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">Target Assignment</h6>
+                    </div>
+                    <div class="card-body">
+                        @if (!string.IsNullOrEmpty(rule.TargetUnderwriterName))
+                        {
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-person-circle fs-2 me-3 text-primary"></i>
+                                <div>
+                                    <strong>@rule.TargetUnderwriterName</strong>
+                                    <br />
+                                    <small class="text-muted">Underwriter</small>
+                                </div>
+                            </div>
+                        }
+                        else if (!string.IsNullOrEmpty(rule.TargetTeamName))
+                        {
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-people-fill fs-2 me-3 text-info"></i>
+                                <div>
+                                    <strong>@rule.TargetTeamName</strong>
+                                    <br />
+                                    <small class="text-muted">Team</small>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="text-muted mb-0">
+                                @switch (rule.Strategy)
+                                {
+                                    case "ProducerPairing":
+                                        <span>Target determined by producer-underwriter pairings.</span>
+                                        break;
+                                    case "RoundRobin":
+                                        <span>Target selected using round-robin distribution.</span>
+                                        break;
+                                    case "LoadBalanced":
+                                        <span>Target selected based on underwriter workload.</span>
+                                        break;
+                                    case "SpecialtyBased":
+                                        <span>Target selected based on underwriter expertise.</span>
+                                        break;
+                                    case "ManualQueue":
+                                        <span>Submission placed in queue for manual assignment.</span>
+                                        break;
+                                    default:
+                                        <span>No target specified.</span>
+                                        break;
+                                }
+                            </p>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private RoutingRuleDto? rule;
+    private bool isLoading = true;
+    private bool isProcessing;
+    private string? errorMessage;
+    private string? successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRule();
+    }
+
+    private async Task LoadRule()
+    {
+        isLoading = true;
+        try
+        {
+            rule = await Mediator.Send(new GetRoutingRuleQuery(Id));
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task ActivateRule()
+    {
+        isProcessing = true;
+        errorMessage = null;
+
+        try
+        {
+            var result = await Mediator.Send(new ActivateRoutingRuleCommand(Id));
+            if (result.IsSuccess)
+            {
+                successMessage = "Routing rule activated successfully.";
+                await LoadRule();
+            }
+            else
+            {
+                errorMessage = result.Error.Description;
+            }
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private async Task DeactivateRule()
+    {
+        isProcessing = true;
+        errorMessage = null;
+
+        try
+        {
+            var result = await Mediator.Send(new DeactivateRoutingRuleCommand(Id));
+            if (result.IsSuccess)
+            {
+                successMessage = "Routing rule deactivated successfully.";
+                await LoadRule();
+            }
+            else
+            {
+                errorMessage = result.Error.Description;
+            }
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private async Task DeleteRule()
+    {
+        isProcessing = true;
+        errorMessage = null;
+
+        try
+        {
+            var result = await Mediator.Send(new DeleteRoutingRuleCommand(Id));
+            if (result.IsSuccess)
+            {
+                Navigation.NavigateTo("/routing-rules");
+            }
+            else
+            {
+                errorMessage = result.Error.Description;
+            }
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private static string GetStatusBadgeClass(string status) => status switch
+    {
+        "Draft" => "bg-secondary",
+        "Active" => "bg-success",
+        "Inactive" => "bg-warning text-dark",
+        "Archived" => "bg-dark",
+        _ => "bg-light text-dark"
+    };
+
+    private static string GetStrategyBadgeClass(string strategy) => strategy switch
+    {
+        "Direct" => "bg-primary",
+        "ProducerPairing" => "bg-info",
+        "RoundRobin" => "bg-success",
+        "LoadBalanced" => "bg-warning text-dark",
+        "SpecialtyBased" => "bg-purple text-white",
+        "ManualQueue" => "bg-secondary",
+        _ => "bg-light text-dark"
+    };
+}

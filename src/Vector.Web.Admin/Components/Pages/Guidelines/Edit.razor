@@ -1,0 +1,237 @@
+@page "/guidelines/{Id:guid}/edit"
+@attribute [Authorize]
+@using MediatR
+@using Vector.Application.UnderwritingGuidelines.Commands
+@using Vector.Application.UnderwritingGuidelines.DTOs
+@using Vector.Application.UnderwritingGuidelines.Queries
+@inject IMediator Mediator
+@inject NavigationManager Navigation
+
+<PageTitle>Edit Guideline - Vector Admin</PageTitle>
+
+<div class="container-fluid">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/guidelines">Guidelines</a></li>
+            <li class="breadcrumb-item"><a href="/guidelines/@Id">@(guideline?.Name ?? "...")</a></li>
+            <li class="breadcrumb-item active">Edit</li>
+        </ol>
+    </nav>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (guideline is null)
+    {
+        <div class="alert alert-danger">
+            Guideline not found.
+            <a href="/guidelines">Return to guidelines list</a>.
+        </div>
+    }
+    else if (guideline.Status == "Archived")
+    {
+        <div class="alert alert-warning">
+            Archived guidelines cannot be edited.
+            <a href="/guidelines/@Id">Return to guideline details</a>.
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Edit Guideline</h5>
+                    </div>
+                    <div class="card-body">
+                        <EditForm Model="@model" OnValidSubmit="HandleSubmit">
+                            <DataAnnotationsValidator />
+
+                            @if (!string.IsNullOrEmpty(errorMessage))
+                            {
+                                <div class="alert alert-danger">@errorMessage</div>
+                            }
+
+                            <div class="mb-3">
+                                <label for="name" class="form-label">Name <span class="text-danger">*</span></label>
+                                <InputText id="name" class="form-control" @bind-Value="model.Name" />
+                                <ValidationMessage For="@(() => model.Name)" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="description" class="form-label">Description</label>
+                                <InputTextArea id="description" class="form-control" rows="3" @bind-Value="model.Description" />
+                            </div>
+
+                            <hr />
+                            <h6>Applicability</h6>
+                            <p class="text-muted small">Define which submissions this guideline applies to.</p>
+
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label for="coverageTypes" class="form-label">Coverage Types</label>
+                                    <InputText id="coverageTypes" class="form-control" @bind-Value="model.ApplicableCoverageTypes"
+                                        placeholder="GL, Property, Auto" />
+                                    <div class="form-text">Comma-separated list</div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="states" class="form-label">States</label>
+                                    <InputText id="states" class="form-control" @bind-Value="model.ApplicableStates"
+                                        placeholder="CA, TX, NY" />
+                                    <div class="form-text">Comma-separated state codes</div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="naics" class="form-label">NAICS Codes</label>
+                                    <InputText id="naics" class="form-control" @bind-Value="model.ApplicableNAICSCodes"
+                                        placeholder="44, 45, 72" />
+                                    <div class="form-text">Comma-separated prefixes</div>
+                                </div>
+                            </div>
+
+                            <hr />
+                            <h6>Effective Period</h6>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="effectiveDate" class="form-label">Effective Date</label>
+                                    <InputDate id="effectiveDate" class="form-control" @bind-Value="model.EffectiveDate" />
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="expirationDate" class="form-label">Expiration Date</label>
+                                    <InputDate id="expirationDate" class="form-control" @bind-Value="model.ExpirationDate" />
+                                </div>
+                            </div>
+
+                            <hr />
+                            <div class="d-flex justify-content-end gap-2">
+                                <a href="/guidelines/@Id" class="btn btn-outline-secondary">Cancel</a>
+                                <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+                                    @if (isSubmitting)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-1"></span>
+                                    }
+                                    Save Changes
+                                </button>
+                            </div>
+                        </EditForm>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <h6>Current Status</h6>
+                        <p>
+                            <span class="badge @GetStatusBadgeClass(guideline.Status) fs-6">@guideline.Status</span>
+                        </p>
+                        <hr />
+                        <h6>Version</h6>
+                        <p class="mb-0">v@guideline.Version</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private GuidelineDto? guideline;
+    private EditGuidelineModel model = new();
+    private bool isLoading = true;
+    private bool isSubmitting;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        try
+        {
+            guideline = await Mediator.Send(new GetGuidelineQuery(Id));
+            if (guideline is not null)
+            {
+                model = new EditGuidelineModel
+                {
+                    Name = guideline.Name,
+                    Description = guideline.Description,
+                    ApplicableCoverageTypes = guideline.ApplicableCoverageTypes,
+                    ApplicableStates = guideline.ApplicableStates,
+                    ApplicableNAICSCodes = guideline.ApplicableNAICSCodes,
+                    EffectiveDate = guideline.EffectiveDate,
+                    ExpirationDate = guideline.ExpirationDate
+                };
+            }
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        isSubmitting = true;
+        errorMessage = null;
+
+        try
+        {
+            var command = new UpdateGuidelineCommand(
+                Id,
+                model.Name,
+                model.Description,
+                model.ApplicableCoverageTypes,
+                model.ApplicableStates,
+                model.ApplicableNAICSCodes,
+                model.EffectiveDate,
+                model.ExpirationDate);
+
+            var result = await Mediator.Send(command);
+
+            if (result.IsSuccess)
+            {
+                Navigation.NavigateTo($"/guidelines/{Id}");
+            }
+            else
+            {
+                errorMessage = result.Error.Description;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "An unexpected error occurred. Please try again.";
+            Console.WriteLine(ex);
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private static string GetStatusBadgeClass(string status) => status switch
+    {
+        "Draft" => "bg-secondary",
+        "Active" => "bg-success",
+        "Inactive" => "bg-warning text-dark",
+        "Archived" => "bg-dark",
+        _ => "bg-light text-dark"
+    };
+
+    private class EditGuidelineModel
+    {
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public string? ApplicableCoverageTypes { get; set; }
+        public string? ApplicableStates { get; set; }
+        public string? ApplicableNAICSCodes { get; set; }
+        public DateTime? EffectiveDate { get; set; }
+        public DateTime? ExpirationDate { get; set; }
+    }
+}

@@ -1,0 +1,147 @@
+@page "/pairings"
+@attribute [Authorize]
+@using MediatR
+@using Vector.Application.Routing.DTOs
+@using Vector.Application.Routing.Queries
+@inject IMediator Mediator
+@inject NavigationManager Navigation
+
+<PageTitle>Producer Pairings - Vector Admin</PageTitle>
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>Producer-Underwriter Pairings</h1>
+            <p class="text-muted">
+                Manage producer-underwriter pairings for automatic submission routing.
+            </p>
+        </div>
+        <div class="col-auto">
+            <a href="/pairings/create" class="btn btn-primary">
+                <i class="bi bi-plus-lg"></i> New Pairing
+            </a>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="showAll" @bind="showAll" @bind:after="LoadPairings">
+                <label class="form-check-label" for="showAll">Show inactive pairings</label>
+            </div>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (pairings.Count == 0)
+    {
+        <div class="alert alert-info">
+            <strong>No pairings found.</strong>
+            <a href="/pairings/create">Create your first producer-underwriter pairing</a>.
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Priority</th>
+                        <th>Producer</th>
+                        <th>Underwriter</th>
+                        <th>Coverage Types</th>
+                        <th>Effective Period</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var pairing in pairings.OrderBy(p => p.Priority))
+                    {
+                        <tr class="@(pairing.IsActive ? "" : "table-secondary")">
+                            <td><strong>@pairing.Priority</strong></td>
+                            <td>
+                                <i class="bi bi-building me-1"></i>
+                                <strong>@pairing.ProducerName</strong>
+                            </td>
+                            <td>
+                                <i class="bi bi-person me-1"></i>
+                                @pairing.UnderwriterName
+                            </td>
+                            <td>
+                                @if (pairing.CoverageTypeCount == 0)
+                                {
+                                    <span class="text-muted">All</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">@pairing.CoverageTypeCount type(s)</span>
+                                }
+                            </td>
+                            <td>
+                                @pairing.EffectiveFrom.ToString("MMM d, yyyy")
+                                @if (pairing.EffectiveUntil.HasValue)
+                                {
+                                    <span> - @pairing.EffectiveUntil.Value.ToString("MMM d, yyyy")</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted"> - No end date</span>
+                                }
+                            </td>
+                            <td>
+                                @if (pairing.IsActive)
+                                {
+                                    <span class="badge bg-success">Active</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">Inactive</span>
+                                }
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="/pairings/@pairing.Id" class="btn btn-outline-primary" title="View Details">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<PairingSummaryDto> pairings = [];
+    private bool isLoading = true;
+    private bool showAll;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPairings();
+    }
+
+    private async Task LoadPairings()
+    {
+        isLoading = true;
+        try
+        {
+            var query = new GetPairingsQuery(ActiveOnly: !showAll);
+            pairings = await Mediator.Send(query);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

@@ -1,0 +1,173 @@
+@page "/guidelines/create"
+@attribute [Authorize]
+@using MediatR
+@using Vector.Application.UnderwritingGuidelines.Commands
+@using Vector.Domain.Common
+@inject IMediator Mediator
+@inject NavigationManager Navigation
+
+<PageTitle>Create Guideline - Vector Admin</PageTitle>
+
+<div class="container-fluid">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/guidelines">Guidelines</a></li>
+            <li class="breadcrumb-item active">Create</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Create New Guideline</h5>
+                </div>
+                <div class="card-body">
+                    <EditForm Model="@model" OnValidSubmit="HandleSubmit">
+                        <DataAnnotationsValidator />
+
+                        @if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            <div class="alert alert-danger">@errorMessage</div>
+                        }
+
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Name <span class="text-danger">*</span></label>
+                            <InputText id="name" class="form-control" @bind-Value="model.Name" />
+                            <ValidationMessage For="@(() => model.Name)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description</label>
+                            <InputTextArea id="description" class="form-control" rows="3" @bind-Value="model.Description" />
+                        </div>
+
+                        <hr />
+                        <h6>Applicability</h6>
+                        <p class="text-muted small">Define which submissions this guideline applies to.</p>
+
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="coverageTypes" class="form-label">Coverage Types</label>
+                                <InputText id="coverageTypes" class="form-control" @bind-Value="model.ApplicableCoverageTypes"
+                                    placeholder="GL, Property, Auto" />
+                                <div class="form-text">Comma-separated list</div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="states" class="form-label">States</label>
+                                <InputText id="states" class="form-control" @bind-Value="model.ApplicableStates"
+                                    placeholder="CA, TX, NY" />
+                                <div class="form-text">Comma-separated state codes</div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="naics" class="form-label">NAICS Codes</label>
+                                <InputText id="naics" class="form-control" @bind-Value="model.ApplicableNAICSCodes"
+                                    placeholder="44, 45, 72" />
+                                <div class="form-text">Comma-separated prefixes</div>
+                            </div>
+                        </div>
+
+                        <hr />
+                        <h6>Effective Period</h6>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="effectiveDate" class="form-label">Effective Date</label>
+                                <InputDate id="effectiveDate" class="form-control" @bind-Value="model.EffectiveDate" />
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="expirationDate" class="form-label">Expiration Date</label>
+                                <InputDate id="expirationDate" class="form-control" @bind-Value="model.ExpirationDate" />
+                            </div>
+                        </div>
+
+                        <hr />
+                        <div class="d-flex justify-content-end gap-2">
+                            <a href="/guidelines" class="btn btn-outline-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+                                @if (isSubmitting)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                }
+                                Create Guideline
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h6>About Guidelines</h6>
+                    <p class="small text-muted">
+                        Underwriting guidelines define the rules and criteria for evaluating submissions.
+                        Each guideline can contain multiple rules that determine eligibility, pricing adjustments,
+                        and appetite scoring.
+                    </p>
+                    <hr />
+                    <h6>Next Steps</h6>
+                    <p class="small text-muted mb-0">
+                        After creating the guideline, you can add rules to define specific criteria.
+                        The guideline must have at least one rule before it can be activated.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private CreateGuidelineModel model = new();
+    private bool isSubmitting;
+    private string? errorMessage;
+
+    private async Task HandleSubmit()
+    {
+        isSubmitting = true;
+        errorMessage = null;
+
+        try
+        {
+            var command = new CreateGuidelineCommand(
+                model.Name,
+                model.Description,
+                model.ApplicableCoverageTypes,
+                model.ApplicableStates,
+                model.ApplicableNAICSCodes,
+                model.EffectiveDate,
+                model.ExpirationDate);
+
+            var result = await Mediator.Send(command);
+
+            if (result.IsSuccess)
+            {
+                Navigation.NavigateTo($"/guidelines/{result.Value}");
+            }
+            else
+            {
+                errorMessage = result.Error.Description;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "An unexpected error occurred. Please try again.";
+            Console.WriteLine(ex);
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private class CreateGuidelineModel
+    {
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public string? ApplicableCoverageTypes { get; set; }
+        public string? ApplicableStates { get; set; }
+        public string? ApplicableNAICSCodes { get; set; }
+        public DateTime? EffectiveDate { get; set; }
+        public DateTime? ExpirationDate { get; set; }
+    }
+}

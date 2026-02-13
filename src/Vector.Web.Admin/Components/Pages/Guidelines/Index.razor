@@ -1,0 +1,163 @@
+@page "/guidelines"
+@attribute [Authorize]
+@using MediatR
+@using Vector.Application.UnderwritingGuidelines.DTOs
+@using Vector.Application.UnderwritingGuidelines.Queries
+@using Vector.Domain.UnderwritingGuidelines.Enums
+@inject IMediator Mediator
+@inject NavigationManager Navigation
+
+<PageTitle>Underwriting Guidelines - Vector Admin</PageTitle>
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>Underwriting Guidelines</h1>
+            <p class="text-muted">
+                Manage appetite rules and eligibility criteria for submissions.
+            </p>
+        </div>
+        <div class="col-auto">
+            <a href="/guidelines/create" class="btn btn-primary">
+                <i class="bi bi-plus-lg"></i> New Guideline
+            </a>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <select class="form-select" @onchange="OnStatusFilterChanged">
+                <option value="">All Guidelines</option>
+                <option value="Draft">Draft</option>
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+                <option value="Archived">Archived</option>
+            </select>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (guidelines.Count == 0)
+    {
+        <div class="alert alert-info">
+            <strong>No guidelines found.</strong>
+            @if (statusFilter is not null)
+            {
+                <span>Try changing the status filter or </span>
+            }
+            <a href="/guidelines/create">create your first guideline</a>.
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Name</th>
+                        <th>Status</th>
+                        <th>Rules</th>
+                        <th>Effective Date</th>
+                        <th>Expiration Date</th>
+                        <th>Version</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var guideline in guidelines)
+                    {
+                        <tr>
+                            <td>
+                                <a href="/guidelines/@guideline.Id">
+                                    <strong>@guideline.Name</strong>
+                                </a>
+                                @if (!string.IsNullOrEmpty(guideline.Description))
+                                {
+                                    <br />
+                                    <small class="text-muted">@TruncateDescription(guideline.Description)</small>
+                                }
+                            </td>
+                            <td>
+                                <span class="badge @GetStatusBadgeClass(guideline.Status)">
+                                    @guideline.Status
+                                </span>
+                            </td>
+                            <td>@guideline.RuleCount</td>
+                            <td>@(guideline.EffectiveDate?.ToString("MMM d, yyyy") ?? "-")</td>
+                            <td>@(guideline.ExpirationDate?.ToString("MMM d, yyyy") ?? "-")</td>
+                            <td>v@guideline.Version</td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="/guidelines/@guideline.Id" class="btn btn-outline-primary" title="View Details">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <a href="/guidelines/@guideline.Id/edit" class="btn btn-outline-secondary" title="Edit">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<GuidelineSummaryDto> guidelines = [];
+    private bool isLoading = true;
+    private GuidelineStatus? statusFilter;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadGuidelines();
+    }
+
+    private async Task LoadGuidelines()
+    {
+        isLoading = true;
+        try
+        {
+            var query = new GetGuidelinesQuery(statusFilter);
+            guidelines = await Mediator.Send(query);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task OnStatusFilterChanged(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString();
+        statusFilter = string.IsNullOrEmpty(value)
+            ? null
+            : Enum.Parse<GuidelineStatus>(value);
+        await LoadGuidelines();
+    }
+
+    private static string GetStatusBadgeClass(string status) => status switch
+    {
+        "Draft" => "bg-secondary",
+        "Active" => "bg-success",
+        "Inactive" => "bg-warning text-dark",
+        "Archived" => "bg-dark",
+        _ => "bg-light text-dark"
+    };
+
+    private static string TruncateDescription(string description)
+    {
+        const int maxLength = 100;
+        return description.Length > maxLength
+            ? description[..maxLength] + "..."
+            : description;
+    }
+}
