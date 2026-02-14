@@ -71,7 +71,12 @@ public static class DependencyInjection
         {
             services.AddSingleton<IBlobStorageService, LocalBlobStorageService>();
             services.AddSingleton<ICacheService, InMemoryCacheService>();
-            services.AddSingleton<IEmailService, MockEmailService>();
+
+            // Use SimulatedEmailService for local development with email injection support
+            services.AddSingleton<SimulatedEmailService>();
+            services.AddSingleton<IEmailService>(sp => sp.GetRequiredService<SimulatedEmailService>());
+            services.AddSingleton<ISimulatedEmailService>(sp => sp.GetRequiredService<SimulatedEmailService>());
+
             services.AddSingleton<IDocumentIntelligenceService, MockDocumentIntelligenceService>();
             services.AddSingleton<IMessageBusService, InMemoryMessageBusService>();
         }
