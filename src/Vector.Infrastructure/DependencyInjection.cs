@@ -21,6 +21,7 @@ using Vector.Infrastructure.Messaging;
 using Vector.Infrastructure.Persistence;
 using Vector.Infrastructure.Persistence.Repositories;
 using Vector.Infrastructure.Services;
+using Vector.Infrastructure.ExternalSystems;
 using Vector.Infrastructure.Storage;
 
 namespace Vector.Infrastructure;
@@ -86,6 +87,11 @@ public static class DependencyInjection
         // Register application layer services
         services.AddScoped<ISubmissionCreationService, SubmissionCreationService>();
         services.AddScoped<IDataQualityScoringService, DataQualityScoringService>();
+
+        // Register external system integrations (NoOp for development)
+        // TODO: Replace with real implementations when PAS/CRM integrations are configured
+        services.AddScoped<IExternalPolicyService, NoOpPolicyService>();
+        services.AddScoped<IExternalCrmService, NoOpCrmService>();
 
         return services;
     }

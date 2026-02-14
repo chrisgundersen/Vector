@@ -1,0 +1,59 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: vector-ingress
+  namespace: vector
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  tls:
+    - hosts:
+        - api.vector.example.com
+        - underwriting.vector.example.com
+        - admin.vector.example.com
+        - portal.vector.example.com
+      secretName: vector-tls
+  rules:
+    - host: api.vector.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: vector-api
+                port:
+                  number: 80
+    - host: underwriting.vector.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: vector-web-underwriting
+                port:
+                  number: 80
+    - host: admin.vector.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: vector-web-admin
+                port:
+                  number: 80
+    - host: portal.vector.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: vector-web-producer
+                port:
+                  number: 80

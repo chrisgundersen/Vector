@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vector-config
+  namespace: vector
+  labels:
+    app.kubernetes.io/name: vector
+data:
+  ASPNETCORE_ENVIRONMENT: "Production"
+  UseInMemoryDatabase: "false"
+  UseMockServices: "false"
+  Logging__LogLevel__Default: "Information"
+  Logging__LogLevel__Microsoft.AspNetCore: "Warning"
+  # Azure AD Configuration (non-sensitive)
+  AzureAd__Instance: "https://login.microsoftonline.com/"
+  AzureAd__CallbackPath: "/signin-oidc"

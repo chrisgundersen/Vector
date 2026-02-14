@@ -1,0 +1,158 @@
+services:
+  vector-api:
+    build:
+      context: .
+      dockerfile: src/Vector.Api/Dockerfile
+    ports:
+      - "5000:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - UseInMemoryDatabase=false
+      - UseMockServices=true
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=VectorDb;User Id=sa;Password=Vector_P@ssw0rd!;TrustServerCertificate=True
+      - ConnectionStrings__Redis=redis:6379
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - vector-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  vector-worker:
+    build:
+      context: .
+      dockerfile: src/Vector.Worker/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - UseInMemoryDatabase=false
+      - UseMockServices=true
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=VectorDb;User Id=sa;Password=Vector_P@ssw0rd!;TrustServerCertificate=True
+      - ConnectionStrings__Redis=redis:6379
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - vector-network
+
+  vector-web-underwriting:
+    build:
+      context: .
+      dockerfile: src/Vector.Web.Underwriting/Dockerfile
+    ports:
+      - "5001:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - UseInMemoryDatabase=false
+      - UseMockServices=true
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=VectorDb;User Id=sa;Password=Vector_P@ssw0rd!;TrustServerCertificate=True
+      - ConnectionStrings__Redis=redis:6379
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - vector-network
+
+  vector-web-admin:
+    build:
+      context: .
+      dockerfile: src/Vector.Web.Admin/Dockerfile
+    ports:
+      - "5002:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - UseInMemoryDatabase=false
+      - UseMockServices=true
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=VectorDb;User Id=sa;Password=Vector_P@ssw0rd!;TrustServerCertificate=True
+      - ConnectionStrings__Redis=redis:6379
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - vector-network
+
+  vector-web-producer:
+    build:
+      context: .
+      dockerfile: src/Vector.Web.Producer/Dockerfile
+    ports:
+      - "5003:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - UseInMemoryDatabase=false
+      - UseMockServices=true
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=VectorDb;User Id=sa;Password=Vector_P@ssw0rd!;TrustServerCertificate=True
+      - ConnectionStrings__Redis=redis:6379
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - vector-network
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=Vector_P@ssw0rd!
+      - MSSQL_PID=Developer
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    networks:
+      - vector-network
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'Vector_P@ssw0rd!' -C -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - vector-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    ports:
+      - "10000:10000"  # Blob
+      - "10001:10001"  # Queue
+      - "10002:10002"  # Table
+    volumes:
+      - azurite-data:/data
+    networks:
+      - vector-network
+    command: "azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0"
+
+volumes:
+  sqlserver-data:
+  redis-data:
+  azurite-data:
+
+networks:
+  vector-network:
+    driver: bridge

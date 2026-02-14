@@ -1,0 +1,12 @@
+# Development overrides - use this for local development with hot reload
+services:
+  vector-api:
+    build:
+      context: .
+      dockerfile: src/Vector.Api/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - UseInMemoryDatabase=true
+      - UseMockServices=true
+    ports:
+      - "5000:8080"
