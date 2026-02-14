@@ -54,20 +54,38 @@ else
                         <i class="bi bi-person-plus me-1"></i>Assign to Me
                     </button>
                 }
+                @if (_submission.Status == "Quoted")
+                {
+                    <button class="btn btn-primary" @onclick="BindSubmission" disabled="@_processing">
+                        @if (_processing)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                        }
+                        <i class="bi bi-check2-all me-1"></i>Bind Policy
+                    </button>
+                }
                 @if (_submission.Status != "Quoted" && _submission.Status != "Declined" && _submission.Status != "Bound")
                 {
-                    <button class="btn btn-outline-warning" @onclick="RequestInformation">
+                    <button class="btn btn-outline-warning" @onclick="RequestInformation" disabled="@_processing">
                         <i class="bi bi-question-circle me-1"></i>Request Info
                     </button>
-                    <button class="btn btn-danger" @onclick="DeclineSubmission">
+                    <button class="btn btn-danger" @onclick="DeclineSubmission" disabled="@_processing">
                         <i class="bi bi-x-circle me-1"></i>Decline
                     </button>
-                    <button class="btn btn-success" @onclick="QuoteSubmission">
+                    <button class="btn btn-success" @onclick="QuoteSubmission" disabled="@_processing">
                         <i class="bi bi-check-circle me-1"></i>Quote
                     </button>
                 }
             </div>
         </div>
+
+        @if (_errorMessage is not null)
+        {
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                @_errorMessage
+                <button type="button" class="btn-close" @onclick="() => _errorMessage = null"></button>
+            </div>
+        }
 
         <div class="row">
             <div class="col-lg-8">
@@ -447,12 +465,140 @@ else
     </div>
 }
 
+@* Quote Modal *@
+@if (_showQuoteModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Quote Submission</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModals" disabled="@_processing"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="premium" class="form-label">Premium Amount</label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="number" class="form-control" id="premium" @bind="_quotePremium"
+                                   min="0" step="100" disabled="@_processing" />
+                            <select class="form-select" style="max-width: 100px;" @bind="_quoteCurrency" disabled="@_processing">
+                                <option value="USD">USD</option>
+                                <option value="CAD">CAD</option>
+                                <option value="GBP">GBP</option>
+                                <option value="EUR">EUR</option>
+                            </select>
+                        </div>
+                    </div>
+                    <p class="text-muted small">Enter the quoted premium for this submission.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModals" disabled="@_processing">Cancel</button>
+                    <button type="button" class="btn btn-success" @onclick="SubmitQuote" disabled="@_processing">
+                        @if (_processing)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                        }
+                        Submit Quote
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* Decline Modal *@
+@if (_showDeclineModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Decline Submission</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModals" disabled="@_processing"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="declineReason" class="form-label">Reason for Declining</label>
+                        <textarea class="form-control" id="declineReason" rows="4" @bind="_declineReason"
+                                  placeholder="Enter the reason for declining this submission..."
+                                  disabled="@_processing"></textarea>
+                    </div>
+                    <div class="alert alert-warning small mb-0">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        This action cannot be undone. The producer will be notified of the decline.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModals" disabled="@_processing">Cancel</button>
+                    <button type="button" class="btn btn-danger" @onclick="SubmitDecline" disabled="@_processing">
+                        @if (_processing)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                        }
+                        Decline Submission
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* Request Information Modal *@
+@if (_showRequestInfoModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Request Additional Information</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModals" disabled="@_processing"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="requestMessage" class="form-label">Information Needed</label>
+                        <textarea class="form-control" id="requestMessage" rows="4" @bind="_requestInfoMessage"
+                                  placeholder="Describe the additional information needed to complete underwriting..."
+                                  disabled="@_processing"></textarea>
+                    </div>
+                    <p class="text-muted small mb-0">
+                        The producer will be notified and can respond via the Producer Portal.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModals" disabled="@_processing">Cancel</button>
+                    <button type="button" class="btn btn-warning" @onclick="SubmitRequestInfo" disabled="@_processing">
+                        @if (_processing)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                        }
+                        Send Request
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     [Parameter]
     public Guid Id { get; set; }
 
     private bool _loading = true;
+    private bool _processing = false;
     private SubmissionDto? _submission;
+    private string? _errorMessage;
+
+    // Modal states
+    private bool _showQuoteModal = false;
+    private bool _showDeclineModal = false;
+    private bool _showRequestInfoModal = false;
+
+    // Form data
+    private decimal _quotePremium = 0;
+    private string _quoteCurrency = "USD";
+    private string _declineReason = "";
+    private string _requestInfoMessage = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -462,11 +608,16 @@ else
     private async Task LoadSubmissionAsync()
     {
         _loading = true;
+        _errorMessage = null;
         StateHasChanged();
 
         try
         {
             _submission = await Mediator.Send(new GetSubmissionQuery(Id));
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to load submission: {ex.Message}";
         }
         finally
         {
@@ -477,29 +628,195 @@ else
 
     private async Task AssignToMe()
     {
-        var result = await Mediator.Send(new AssignSubmissionCommand(Id, Guid.NewGuid(), "Current User"));
-        if (result.IsSuccess)
+        _processing = true;
+        _errorMessage = null;
+        StateHasChanged();
+
+        try
         {
-            await LoadSubmissionAsync();
+            var result = await Mediator.Send(new AssignSubmissionCommand(Id, Guid.NewGuid(), "Current User"));
+            if (result.IsSuccess)
+            {
+                await LoadSubmissionAsync();
+            }
+            else
+            {
+                _errorMessage = result.Error.Description;
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to assign submission: {ex.Message}";
+        }
+        finally
+        {
+            _processing = false;
+            StateHasChanged();
         }
     }
 
     private void RequestInformation()
     {
-        // TODO: Implement request information modal/flow
-        Navigation.NavigateTo($"/submissions/{Id}/request-info");
+        _requestInfoMessage = "";
+        _showRequestInfoModal = true;
+    }
+
+    private async Task SubmitRequestInfo()
+    {
+        if (string.IsNullOrWhiteSpace(_requestInfoMessage))
+        {
+            _errorMessage = "Please enter a message describing the information needed.";
+            return;
+        }
+
+        _processing = true;
+        _errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var result = await Mediator.Send(new RequestInformationCommand(Id, _requestInfoMessage));
+            if (result.IsSuccess)
+            {
+                _showRequestInfoModal = false;
+                await LoadSubmissionAsync();
+            }
+            else
+            {
+                _errorMessage = result.Error.Description;
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to request information: {ex.Message}";
+        }
+        finally
+        {
+            _processing = false;
+            StateHasChanged();
+        }
     }
 
     private void DeclineSubmission()
     {
-        // TODO: Implement decline modal/flow
-        Navigation.NavigateTo($"/submissions/{Id}/decline");
+        _declineReason = "";
+        _showDeclineModal = true;
+    }
+
+    private async Task SubmitDecline()
+    {
+        if (string.IsNullOrWhiteSpace(_declineReason))
+        {
+            _errorMessage = "Please enter a reason for declining.";
+            return;
+        }
+
+        _processing = true;
+        _errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var result = await Mediator.Send(new DeclineSubmissionCommand(Id, _declineReason));
+            if (result.IsSuccess)
+            {
+                _showDeclineModal = false;
+                await LoadSubmissionAsync();
+            }
+            else
+            {
+                _errorMessage = result.Error.Description;
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to decline submission: {ex.Message}";
+        }
+        finally
+        {
+            _processing = false;
+            StateHasChanged();
+        }
     }
 
     private void QuoteSubmission()
     {
-        // TODO: Implement quote flow
-        Navigation.NavigateTo($"/submissions/{Id}/quote");
+        _quotePremium = 0;
+        _quoteCurrency = "USD";
+        _showQuoteModal = true;
+    }
+
+    private async Task SubmitQuote()
+    {
+        if (_quotePremium <= 0)
+        {
+            _errorMessage = "Please enter a valid premium amount.";
+            return;
+        }
+
+        _processing = true;
+        _errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var result = await Mediator.Send(new QuoteSubmissionCommand(Id, _quotePremium, _quoteCurrency));
+            if (result.IsSuccess)
+            {
+                _showQuoteModal = false;
+                await LoadSubmissionAsync();
+            }
+            else
+            {
+                _errorMessage = result.Error.Description;
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to quote submission: {ex.Message}";
+        }
+        finally
+        {
+            _processing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task BindSubmission()
+    {
+        _processing = true;
+        _errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var result = await Mediator.Send(new BindSubmissionCommand(Id));
+            if (result.IsSuccess)
+            {
+                await LoadSubmissionAsync();
+            }
+            else
+            {
+                _errorMessage = result.Error.Description;
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to bind submission: {ex.Message}";
+        }
+        finally
+        {
+            _processing = false;
+            StateHasChanged();
+        }
+    }
+
+    private void CloseModals()
+    {
+        _showQuoteModal = false;
+        _showDeclineModal = false;
+        _showRequestInfoModal = false;
+        _errorMessage = null;
     }
 
     private static string FormatCurrency(decimal? value) =>
