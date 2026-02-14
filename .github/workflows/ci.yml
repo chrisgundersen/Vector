@@ -1,0 +1,117 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+env:
+  DOTNET_VERSION: '9.0.x'
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  build:
+    name: Build and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Run Unit Tests
+        run: |
+          dotnet test tests/Vector.Domain.UnitTests/Vector.Domain.UnitTests.csproj \
+            --no-build \
+            --configuration Release \
+            --logger "trx;LogFileName=domain-unit-tests.trx" \
+            --results-directory ./TestResults
+
+          dotnet test tests/Vector.Application.UnitTests/Vector.Application.UnitTests.csproj \
+            --no-build \
+            --configuration Release \
+            --logger "trx;LogFileName=application-unit-tests.trx" \
+            --results-directory ./TestResults
+
+      - name: Run Integration Tests
+        run: |
+          dotnet test tests/Vector.Infrastructure.IntegrationTests/Vector.Infrastructure.IntegrationTests.csproj \
+            --no-build \
+            --configuration Release \
+            --logger "trx;LogFileName=infrastructure-integration-tests.trx" \
+            --results-directory ./TestResults
+
+          dotnet test tests/Vector.Api.IntegrationTests/Vector.Api.IntegrationTests.csproj \
+            --no-build \
+            --configuration Release \
+            --logger "trx;LogFileName=api-integration-tests.trx" \
+            --results-directory ./TestResults
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: ./TestResults/*.trx
+
+  code-quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Check formatting
+        run: dotnet format --verify-no-changes --verbosity diagnostic
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Run security scan
+        run: |
+          dotnet tool install --global security-scan || true
+          dotnet list package --vulnerable --include-transitive 2>&1 | tee vulnerability-report.txt
+          if grep -q "has the following vulnerable packages" vulnerability-report.txt; then
+            echo "::warning::Vulnerable packages detected. Review vulnerability-report.txt"
+          fi
+
+      - name: Upload vulnerability report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vulnerability-report
+          path: vulnerability-report.txt

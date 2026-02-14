@@ -1,0 +1,17 @@
+# Default owners for everything in the repo
+* @your-team
+
+# Domain layer requires domain expert review
+/src/Vector.Domain/ @domain-experts
+
+# Infrastructure changes require platform team review
+/src/Vector.Infrastructure/ @platform-team
+/kubernetes/ @platform-team
+/docker-compose.yml @platform-team
+
+# API changes require API team review
+/src/Vector.Api/ @api-team
+
+# Security-sensitive files
+/.github/workflows/ @security-team @platform-team
+/src/**/appsettings*.json @security-team

@@ -1,0 +1,70 @@
+version: 2
+updates:
+  # NuGet packages
+  - package-ecosystem: "nuget"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    groups:
+      microsoft:
+        patterns:
+          - "Microsoft.*"
+          - "System.*"
+      azure:
+        patterns:
+          - "Azure.*"
+      testing:
+        patterns:
+          - "xunit*"
+          - "Moq*"
+          - "FluentAssertions*"
+    commit-message:
+      prefix: "deps(nuget)"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(actions)"
+
+  # Docker
+  - package-ecosystem: "docker"
+    directory: "/src/Vector.Api"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "deps(docker)"
+
+  - package-ecosystem: "docker"
+    directory: "/src/Vector.Worker"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "deps(docker)"
+
+  - package-ecosystem: "docker"
+    directory: "/src/Vector.Web.Underwriting"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "deps(docker)"
+
+  - package-ecosystem: "docker"
+    directory: "/src/Vector.Web.Admin"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "deps(docker)"
+
+  - package-ecosystem: "docker"
+    directory: "/src/Vector.Web.Producer"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "deps(docker)"

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Serilog;
 using System.Text.Json;
 using Vector.Api;
+using Vector.Api.Middleware;
 using Vector.Application;
 using Vector.Infrastructure;
 
@@ -31,6 +32,9 @@ try
     var app = builder.Build();
 
     // Configure the HTTP request pipeline
+    app.UseCorrelationId();
+    app.UseGlobalExceptionHandler();
+
     if (app.Environment.IsDevelopment())
     {
         app.UseSwagger();
@@ -41,7 +45,17 @@ try
         });
     }
 
-    app.UseSerilogRequestLogging();
+    app.UseSerilogRequestLogging(options =>
+    {
+        options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
+        {
+            var correlationId = httpContext.Request.Headers[CorrelationIdMiddleware.CorrelationIdHeader].FirstOrDefault();
+            if (!string.IsNullOrEmpty(correlationId))
+            {
+                diagnosticContext.Set("CorrelationId", correlationId);
+            }
+        };
+    });
     app.UseHttpsRedirection();
     app.UseAuthentication();
     app.UseAuthorization();

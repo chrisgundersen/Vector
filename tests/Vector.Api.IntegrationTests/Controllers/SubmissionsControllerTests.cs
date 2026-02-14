@@ -199,6 +199,305 @@ public class SubmissionsControllerTests
         badRequestResult.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
     }
 
+    #region Quote Endpoint Tests
+
+    [Fact]
+    public async Task Quote_WithValidRequest_ReturnsNoContent()
+    {
+        // Arrange
+        var submissionId = Guid.NewGuid();
+        var request = new QuoteSubmissionRequest(25000m, "USD");
+
+        _mediatorMock.Setup(m => m.Send(
+                It.Is<QuoteSubmissionCommand>(c =>
+                    c.SubmissionId == submissionId &&
+                    c.PremiumAmount == 25000m &&
+                    c.Currency == "USD"),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success());
+
+        // Act
+        var result = await _controller.Quote(submissionId, request, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<NoContentResult>();
+    }
+
+    [Fact]
+    public async Task Quote_WithNonExistentSubmission_ReturnsNotFound()
+    {
+        // Arrange
+        var submissionId = Guid.NewGuid();
+        var request = new QuoteSubmissionRequest(25000m, "USD");
+
+        _mediatorMock.Setup(m => m.Send(
+                It.IsAny<QuoteSubmissionCommand>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(new Error("Submission.NotFound", "Submission not found")));
+
+        // Act
+        var result = await _controller.Quote(submissionId, request, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task Quote_WithInvalidSubmissionState_ReturnsBadRequest()
+    {
+        // Arrange
+        var submissionId = Guid.NewGuid();
+        var request = new QuoteSubmissionRequest(25000m, "USD");
+
+        _mediatorMock.Setup(m => m.Send(
+                It.IsAny<QuoteSubmissionCommand>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(new Error(
+                "Submission.InvalidState",
+                "Cannot quote a submission that is not in review")));
+
+        // Act
+        var result = await _controller.Quote(submissionId, request, CancellationToken.None);
+
+        // Assert
+        var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
+        badRequestResult.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
+    }
+
+    #endregion
+
+    #region Decline Endpoint Tests
+
+    [Fact]
+    public async Task Decline_WithValidRequest_ReturnsNoContent()
+    {
+        // Arrange
+        var submissionId = Guid.NewGuid();
+        var request = new DeclineSubmissionRequest("Outside appetite - geographic restrictions");
+
+        _mediatorMock.Setup(m => m.Send(
+                It.Is<DeclineSubmissionCommand>(c =>
+                    c.SubmissionId == submissionId &&
+                    c.Reason == "Outside appetite - geographic restrictions"),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success());
+
+        // Act
+        var result = await _controller.Decline(submissionId, request, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<NoContentResult>();
+    }
+
+    [Fact]
+    public async Task Decline_WithNonExistentSubmission_ReturnsNotFound()
+    {
+        // Arrange
+        var submissionId = Guid.NewGuid();
+        var request = new DeclineSubmissionRequest("Not in appetite");
+
+        _mediatorMock.Setup(m => m.Send(
+                It.IsAny<DeclineSubmissionCommand>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(new Error("Submission.NotFound", "Submission not found")));
+
+        // Act
+        var result = await _controller.Decline(submissionId, request, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task Decline_WithAlreadyBoundSubmission_ReturnsBadRequest()
+    {
+        // Arrange
+        var submissionId = Guid.NewGuid();
+        var request = new DeclineSubmissionRequest("Changed our mind");
+
+        _mediatorMock.Setup(m => m.Send(
+                It.IsAny<DeclineSubmissionCommand>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(new Error(
+                "Submission.AlreadyBound",
+                "Cannot decline a bound submission")));
+
+        // Act
+        var result = await _controller.Decline(submissionId, request, CancellationToken.None);
+
+        // Assert
+        var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
+        badRequestResult.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
+    }
+
+    #endregion
+
+    #region RequestInfo Endpoint Tests
+
+    [Fact]
+    public async Task RequestInfo_WithValidRequest_ReturnsNoContent()
+    {
+        // Arrange
+        var submissionId = Guid.NewGuid();
+        var request = new RequestInfoRequest("Please provide 5-year loss history");
+
+        _mediatorMock.Setup(m => m.Send(
+                It.Is<RequestInformationCommand>(c =>
+                    c.SubmissionId == submissionId &&
+                    c.Reason == "Please provide 5-year loss history"),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success());
+
+        // Act
+        var result = await _controller.RequestInfo(submissionId, request, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<NoContentResult>();
+    }
+
+    [Fact]
+    public async Task RequestInfo_WithNonExistentSubmission_ReturnsNotFound()
+    {
+        // Arrange
+        var submissionId = Guid.NewGuid();
+        var request = new RequestInfoRequest("Need more details");
+
+        _mediatorMock.Setup(m => m.Send(
+                It.IsAny<RequestInformationCommand>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(new Error("Submission.NotFound", "Submission not found")));
+
+        // Act
+        var result = await _controller.RequestInfo(submissionId, request, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task RequestInfo_WithClosedSubmission_ReturnsBadRequest()
+    {
+        // Arrange
+        var submissionId = Guid.NewGuid();
+        var request = new RequestInfoRequest("Additional documents needed");
+
+        _mediatorMock.Setup(m => m.Send(
+                It.IsAny<RequestInformationCommand>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(new Error(
+                "Submission.Closed",
+                "Cannot request information for a closed submission")));
+
+        // Act
+        var result = await _controller.RequestInfo(submissionId, request, CancellationToken.None);
+
+        // Assert
+        var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
+        badRequestResult.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
+    }
+
+    #endregion
+
+    #region Bind Endpoint Tests
+
+    [Fact]
+    public async Task Bind_WithValidRequest_ReturnsOkWithResult()
+    {
+        // Arrange
+        var submissionId = Guid.NewGuid();
+        var bindResult = new BindSubmissionResult(
+            submissionId,
+            "SUB-2024-000001",
+            "EXT-POL-001",
+            "POL-2024-000001",
+            DateTime.UtcNow);
+
+        _mediatorMock.Setup(m => m.Send(
+                It.Is<BindSubmissionCommand>(c => c.SubmissionId == submissionId),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(bindResult));
+
+        // Act
+        var result = await _controller.Bind(submissionId, CancellationToken.None);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.StatusCode.Should().Be(StatusCodes.Status200OK);
+        var returnedResult = okResult.Value.Should().BeOfType<BindSubmissionResult>().Subject;
+        returnedResult.SubmissionNumber.Should().Be("SUB-2024-000001");
+        returnedResult.ExternalPolicyId.Should().Be("EXT-POL-001");
+        returnedResult.PolicyNumber.Should().Be("POL-2024-000001");
+    }
+
+    [Fact]
+    public async Task Bind_WithNonExistentSubmission_ReturnsNotFound()
+    {
+        // Arrange
+        var submissionId = Guid.NewGuid();
+
+        _mediatorMock.Setup(m => m.Send(
+                It.IsAny<BindSubmissionCommand>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure<BindSubmissionResult>(
+                new Error("Submission.NotFound", "Submission not found")));
+
+        // Act
+        var result = await _controller.Bind(submissionId, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task Bind_WithNonQuotedSubmission_ReturnsBadRequest()
+    {
+        // Arrange
+        var submissionId = Guid.NewGuid();
+
+        _mediatorMock.Setup(m => m.Send(
+                It.IsAny<BindSubmissionCommand>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure<BindSubmissionResult>(new Error(
+                "Submission.NotQuoted",
+                "Only quoted submissions can be bound")));
+
+        // Act
+        var result = await _controller.Bind(submissionId, CancellationToken.None);
+
+        // Assert
+        var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
+        badRequestResult.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
+    }
+
+    [Fact]
+    public async Task Bind_WhenPasFails_StillReturnsSuccessWithPartialResult()
+    {
+        // Arrange
+        var submissionId = Guid.NewGuid();
+        var bindResult = new BindSubmissionResult(
+            submissionId,
+            "SUB-2024-000001",
+            null, // PAS failed, no external policy ID
+            null, // No policy number
+            DateTime.UtcNow);
+
+        _mediatorMock.Setup(m => m.Send(
+                It.Is<BindSubmissionCommand>(c => c.SubmissionId == submissionId),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(bindResult));
+
+        // Act
+        var result = await _controller.Bind(submissionId, CancellationToken.None);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        var returnedResult = okResult.Value.Should().BeOfType<BindSubmissionResult>().Subject;
+        returnedResult.ExternalPolicyId.Should().BeNull();
+        returnedResult.PolicyNumber.Should().BeNull();
+    }
+
+    #endregion
+
     private SubmissionDto CreateSubmissionDto(Guid id) =>
         new(
             Id: id,
