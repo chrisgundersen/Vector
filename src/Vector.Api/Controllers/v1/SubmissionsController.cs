@@ -120,6 +120,141 @@ public class SubmissionsController(IMediator mediator, ILogger<SubmissionsContro
     }
 
     /// <summary>
+    /// Quotes a submission with a premium amount.
+    /// </summary>
+    [HttpPost("{id:guid}/quote")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Quote(Guid id, [FromBody] QuoteSubmissionRequest request, CancellationToken cancellationToken)
+    {
+        var command = new QuoteSubmissionCommand(id, request.PremiumAmount, request.Currency);
+
+        var result = await mediator.Send(command, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            if (result.Error.Code == "Submission.NotFound")
+            {
+                return NotFound();
+            }
+
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Failed to quote submission",
+                Detail = result.Error.Description,
+                Status = StatusCodes.Status400BadRequest
+            });
+        }
+
+        logger.LogInformation("Quoted submission {SubmissionId} with premium {Amount} {Currency}", id, request.PremiumAmount, request.Currency);
+
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Declines a submission with a reason.
+    /// </summary>
+    [HttpPost("{id:guid}/decline")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Decline(Guid id, [FromBody] DeclineSubmissionRequest request, CancellationToken cancellationToken)
+    {
+        var command = new DeclineSubmissionCommand(id, request.Reason);
+
+        var result = await mediator.Send(command, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            if (result.Error.Code == "Submission.NotFound")
+            {
+                return NotFound();
+            }
+
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Failed to decline submission",
+                Detail = result.Error.Description,
+                Status = StatusCodes.Status400BadRequest
+            });
+        }
+
+        logger.LogInformation("Declined submission {SubmissionId} with reason: {Reason}", id, request.Reason);
+
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Requests additional information for a submission.
+    /// </summary>
+    [HttpPost("{id:guid}/request-info")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> RequestInfo(Guid id, [FromBody] RequestInfoRequest request, CancellationToken cancellationToken)
+    {
+        var command = new RequestInformationCommand(id, request.Message);
+
+        var result = await mediator.Send(command, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            if (result.Error.Code == "Submission.NotFound")
+            {
+                return NotFound();
+            }
+
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Failed to request information",
+                Detail = result.Error.Description,
+                Status = StatusCodes.Status400BadRequest
+            });
+        }
+
+        logger.LogInformation("Requested information for submission {SubmissionId}", id);
+
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Binds a quoted submission, creating a policy in the external PAS system.
+    /// </summary>
+    [HttpPost("{id:guid}/bind")]
+    [ProducesResponseType(typeof(BindSubmissionResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Bind(Guid id, CancellationToken cancellationToken)
+    {
+        var command = new BindSubmissionCommand(id);
+
+        var result = await mediator.Send(command, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            if (result.Error.Code == "Submission.NotFound")
+            {
+                return NotFound();
+            }
+
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Failed to bind submission",
+                Detail = result.Error.Description,
+                Status = StatusCodes.Status400BadRequest
+            });
+        }
+
+        logger.LogInformation(
+            "Bound submission {SubmissionId} with policy number {PolicyNumber}",
+            id,
+            result.Value?.PolicyNumber);
+
+        return Ok(result.Value);
+    }
+
+    /// <summary>
     /// Gets data correction requests for a submission.
     /// </summary>
     [HttpGet("{id:guid}/corrections")]
@@ -189,3 +324,13 @@ public record CreateCorrectionRequest(
     string? CurrentValue,
     string ProposedValue,
     string Justification);
+
+public record QuoteSubmissionRequest(
+    decimal PremiumAmount,
+    string Currency = "USD");
+
+public record DeclineSubmissionRequest(
+    string Reason);
+
+public record RequestInfoRequest(
+    string Message);
