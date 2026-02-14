@@ -88,6 +88,9 @@ public static class DependencyInjection
         services.AddScoped<ISubmissionCreationService, SubmissionCreationService>();
         services.AddScoped<IDataQualityScoringService, DataQualityScoringService>();
 
+        // Register database seeder
+        services.AddScoped<DatabaseSeeder>();
+
         // Register external system integrations (NoOp for development)
         // TODO: Replace with real implementations when PAS/CRM integrations are configured
         services.AddScoped<IExternalPolicyService, NoOpPolicyService>();

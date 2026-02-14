@@ -56,6 +56,24 @@ public class SubmissionsController(IMediator mediator, ILogger<SubmissionsContro
     }
 
     /// <summary>
+    /// Gets a submission by submission number (e.g., SUB-2024-000001).
+    /// </summary>
+    [HttpGet("by-number/{submissionNumber}")]
+    [ProducesResponseType(typeof(SubmissionDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetByNumber(string submissionNumber, CancellationToken cancellationToken)
+    {
+        var submission = await mediator.Send(new GetSubmissionByNumberQuery(submissionNumber), cancellationToken);
+
+        if (submission is null)
+        {
+            return NotFound();
+        }
+
+        return Ok(submission);
+    }
+
+    /// <summary>
     /// Creates a new submission.
     /// </summary>
     [HttpPost]

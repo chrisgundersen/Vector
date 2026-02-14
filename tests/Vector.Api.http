@@ -1,0 +1,507 @@
+### Vector API Testing File
+### Use with VS Code REST Client extension or similar HTTP client
+### Base URL: http://localhost:5000 (Development)
+
+@baseUrl = http://localhost:5000
+@apiVersion = v1
+@tenantId = 00000000-0000-0000-0000-000000000001
+@secondTenantId = 00000000-0000-0000-0000-000000000002
+
+### ==================================================
+### HEALTH CHECKS
+### ==================================================
+
+### General Health Check
+GET {{baseUrl}}/health
+Content-Type: application/json
+
+###
+
+### Liveness Probe (Kubernetes)
+GET {{baseUrl}}/health/live
+Content-Type: application/json
+
+###
+
+### Readiness Probe (Kubernetes)
+GET {{baseUrl}}/health/ready
+Content-Type: application/json
+
+###
+
+### ==================================================
+### SUBMISSIONS - CRUD Operations
+### ==================================================
+
+### Get All Submissions (Default Tenant)
+GET {{baseUrl}}/api/{{apiVersion}}/submissions
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+
+###
+
+### Get All Submissions (Second Tenant)
+GET {{baseUrl}}/api/{{apiVersion}}/submissions
+X-Tenant-Id: {{secondTenantId}}
+Content-Type: application/json
+
+###
+
+### Get Submissions with Pagination
+GET {{baseUrl}}/api/{{apiVersion}}/submissions?pageNumber=1&pageSize=5
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+
+###
+
+### Get Submissions by Status (InReview)
+GET {{baseUrl}}/api/{{apiVersion}}/submissions?status=InReview
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+
+###
+
+### Get Submissions by Status (Quoted)
+GET {{baseUrl}}/api/{{apiVersion}}/submissions?status=Quoted
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+
+###
+
+### Get Submissions by Status (Bound)
+GET {{baseUrl}}/api/{{apiVersion}}/submissions?status=Bound
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+
+###
+
+### Search for Submission by Number
+# Use the search parameter to find submissions by number
+GET {{baseUrl}}/api/{{apiVersion}}/submissions?search=SUB-2024-000001
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+
+###
+
+### Search for Submission by Insured Name
+GET {{baseUrl}}/api/{{apiVersion}}/submissions?search=Acme
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+
+###
+
+### Get Submission by Submission Number (Convenient!)
+# Use the human-readable submission number directly
+GET {{baseUrl}}/api/{{apiVersion}}/submissions/by-number/SUB-2024-000001
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+
+###
+
+### Get Submission by ID (GUID)
+# Use GUID from search results or by-number response
+@submissionGuid = 00000000-0000-0000-0000-000000000000
+GET {{baseUrl}}/api/{{apiVersion}}/submissions/{{submissionGuid}}
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+
+###
+
+### Create New Submission
+POST {{baseUrl}}/api/{{apiVersion}}/submissions
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+X-Correlation-Id: {{$guid}}
+
+{
+    "submissionNumber": "SUB-2024-TEST01",
+    "insuredName": "Test Company Inc",
+    "producerName": "ABC Insurance Agency",
+    "producerEmail": "producer@abcinsurance.com",
+    "producerPhone": "555-123-4567"
+}
+
+###
+
+### Update Submission
+# Replace {submissionId} with actual ID from previous response
+@newSubmissionId = {{$guid}}
+PUT {{baseUrl}}/api/{{apiVersion}}/submissions/{{newSubmissionId}}
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+X-Correlation-Id: {{$guid}}
+
+{
+    "insuredName": "Test Company Inc - Updated",
+    "producerName": "XYZ Brokers Inc",
+    "producerEmail": "broker@xyzbrokers.com"
+}
+
+###
+
+### ==================================================
+### SUBMISSION WORKFLOW ACTIONS
+### ==================================================
+
+### Assign Underwriter to Submission
+# Use SUB-2024-000002 which is in 'Received' status
+@receivedSubmissionId = SUB-2024-000002
+POST {{baseUrl}}/api/{{apiVersion}}/submissions/{{receivedSubmissionId}}/assign
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+X-Correlation-Id: {{$guid}}
+
+{
+    "underwriterId": "11111111-1111-1111-1111-111111111111",
+    "underwriterName": "John Smith"
+}
+
+###
+
+### Quote Submission
+# Use SUB-2024-000003 which is in 'InReview' status with underwriter assigned
+@inReviewSubmissionId = SUB-2024-000003
+POST {{baseUrl}}/api/{{apiVersion}}/submissions/{{inReviewSubmissionId}}/quote
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+X-Correlation-Id: {{$guid}}
+
+{
+    "premium": 55000.00,
+    "currency": "USD"
+}
+
+###
+
+### Decline Submission
+# Use a draft or received submission
+@submissionToDecline = SUB-2024-000001
+POST {{baseUrl}}/api/{{apiVersion}}/submissions/{{submissionToDecline}}/decline
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+X-Correlation-Id: {{$guid}}
+
+{
+    "reason": "Risk outside appetite - high hazard operations"
+}
+
+###
+
+### Request Information
+@submissionNeedingInfo = SUB-2024-000002
+POST {{baseUrl}}/api/{{apiVersion}}/submissions/{{submissionNeedingInfo}}/request-info
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+X-Correlation-Id: {{$guid}}
+
+{
+    "reason": "Please provide 5-year loss history and current Statement of Values."
+}
+
+###
+
+### Bind Submission
+# Use SUB-2024-000005 or SUB-2024-000006 which are in 'Quoted' status
+@quotedSubmissionId = SUB-2024-000005
+POST {{baseUrl}}/api/{{apiVersion}}/submissions/{{quotedSubmissionId}}/bind
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+X-Correlation-Id: {{$guid}}
+
+###
+
+### ==================================================
+### UNDERWRITING GUIDELINES
+### ==================================================
+
+### Get All Guidelines (Default Tenant)
+GET {{baseUrl}}/api/{{apiVersion}}/underwriting-guidelines
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+
+###
+
+### Get All Guidelines (Second Tenant)
+GET {{baseUrl}}/api/{{apiVersion}}/underwriting-guidelines
+X-Tenant-Id: {{secondTenantId}}
+Content-Type: application/json
+
+###
+
+### Get Guidelines by Line of Business
+GET {{baseUrl}}/api/{{apiVersion}}/underwriting-guidelines?lineOfBusiness=GeneralLiability
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+
+###
+
+### Get Active Guidelines Only
+GET {{baseUrl}}/api/{{apiVersion}}/underwriting-guidelines?isActive=true
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+
+###
+
+### Create New Guideline
+POST {{baseUrl}}/api/{{apiVersion}}/underwriting-guidelines
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+X-Correlation-Id: {{$guid}}
+
+{
+    "name": "Commercial Auto - Fleet",
+    "description": "Commercial auto coverage for fleet operations",
+    "lineOfBusiness": "CommercialAuto",
+    "applicableStates": ["NY", "NJ", "PA", "CT"],
+    "applicableClassCodes": ["48", "49"],
+    "effectiveDate": "2024-01-01",
+    "expirationDate": "2024-12-31"
+}
+
+###
+
+### Update Guideline
+# Replace with actual guideline ID
+@guidelineId = {{$guid}}
+PUT {{baseUrl}}/api/{{apiVersion}}/underwriting-guidelines/{{guidelineId}}
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+X-Correlation-Id: {{$guid}}
+
+{
+    "name": "Commercial Auto - Fleet Updated",
+    "description": "Updated description for commercial auto coverage"
+}
+
+###
+
+### Activate Guideline
+POST {{baseUrl}}/api/{{apiVersion}}/underwriting-guidelines/{{guidelineId}}/activate
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+X-Correlation-Id: {{$guid}}
+
+###
+
+### Deactivate Guideline
+POST {{baseUrl}}/api/{{apiVersion}}/underwriting-guidelines/{{guidelineId}}/deactivate
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+X-Correlation-Id: {{$guid}}
+
+###
+
+### ==================================================
+### ROUTING RULES
+### ==================================================
+
+### Get All Routing Rules
+GET {{baseUrl}}/api/{{apiVersion}}/routing/rules
+Content-Type: application/json
+
+###
+
+### Get Active Routing Rules Only
+GET {{baseUrl}}/api/{{apiVersion}}/routing/rules?isActive=true
+Content-Type: application/json
+
+###
+
+### Get Routing Rule by ID
+@routingRuleId = {{$guid}}
+GET {{baseUrl}}/api/{{apiVersion}}/routing/rules/{{routingRuleId}}
+Content-Type: application/json
+
+###
+
+### Create Routing Rule
+POST {{baseUrl}}/api/{{apiVersion}}/routing/rules
+Content-Type: application/json
+X-Correlation-Id: {{$guid}}
+
+{
+    "name": "Large Account Direct",
+    "description": "Route large accounts directly to senior underwriter",
+    "strategy": "Direct",
+    "priority": 90,
+    "targetUnderwriterId": "11111111-1111-1111-1111-111111111111",
+    "targetUnderwriterName": "John Smith - Senior UW"
+}
+
+###
+
+### ==================================================
+### PRODUCER-UNDERWRITER PAIRINGS
+### ==================================================
+
+### Get All Pairings
+GET {{baseUrl}}/api/{{apiVersion}}/routing/pairings
+Content-Type: application/json
+
+###
+
+### Create Producer-Underwriter Pairing
+POST {{baseUrl}}/api/{{apiVersion}}/routing/pairings
+Content-Type: application/json
+X-Correlation-Id: {{$guid}}
+
+{
+    "producerId": "55555555-5555-5555-5555-555555555555",
+    "producerName": "New Insurance Agency",
+    "underwriterId": "22222222-2222-2222-2222-222222222222",
+    "underwriterName": "Jane Doe"
+}
+
+###
+
+### ==================================================
+### DOCUMENT PROCESSING
+### ==================================================
+
+### Get Processing Jobs
+GET {{baseUrl}}/api/{{apiVersion}}/document-processing/jobs
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+
+###
+
+### Get Processing Job by ID
+@processingJobId = {{$guid}}
+GET {{baseUrl}}/api/{{apiVersion}}/document-processing/jobs/{{processingJobId}}
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+
+###
+
+### ==================================================
+### EMAIL INTAKE
+### ==================================================
+
+### Get Inbound Emails
+GET {{baseUrl}}/api/{{apiVersion}}/email-intake/emails
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+
+###
+
+### Get Inbound Email by ID
+@emailId = {{$guid}}
+GET {{baseUrl}}/api/{{apiVersion}}/email-intake/emails/{{emailId}}
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+
+###
+
+### ==================================================
+### ERROR HANDLING TESTS
+### ==================================================
+
+### Get Non-Existent Submission (404)
+GET {{baseUrl}}/api/{{apiVersion}}/submissions/00000000-0000-0000-0000-000000000000
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+
+###
+
+### Create Submission with Invalid Data (400)
+POST {{baseUrl}}/api/{{apiVersion}}/submissions
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+
+{
+    "submissionNumber": "",
+    "insuredName": ""
+}
+
+###
+
+### Quote Already Bound Submission (400)
+# SUB-2024-000007 is already bound
+POST {{baseUrl}}/api/{{apiVersion}}/submissions/SUB-2024-000007/quote
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+
+{
+    "premium": 100000.00,
+    "currency": "USD"
+}
+
+###
+
+### Bind Non-Quoted Submission (400)
+# SUB-2024-000001 is in draft status
+POST {{baseUrl}}/api/{{apiVersion}}/submissions/SUB-2024-000001/bind
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+
+###
+
+### ==================================================
+### SWAGGER UI
+### ==================================================
+
+### Open Swagger UI (Development Only)
+# Navigate to: http://localhost:5000 in browser
+# Or: http://localhost:5000/swagger
+
+###
+
+### ==================================================
+### END-TO-END WORKFLOW TEST
+### ==================================================
+
+### Step 1: Create New Submission
+# @name createSubmission
+POST {{baseUrl}}/api/{{apiVersion}}/submissions
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+X-Correlation-Id: e2e-test-{{$timestamp}}
+
+{
+    "submissionNumber": "SUB-E2E-{{$timestamp}}",
+    "insuredName": "E2E Test Company",
+    "producerName": "Test Producer Agency",
+    "producerEmail": "test@producer.com"
+}
+
+###
+
+### Step 2: Assign Underwriter (use submission ID from step 1)
+# Copy the ID from the response above
+@e2eSubmissionId = {{createSubmission.response.body.$.id}}
+POST {{baseUrl}}/api/{{apiVersion}}/submissions/{{e2eSubmissionId}}/assign
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+
+{
+    "underwriterId": "11111111-1111-1111-1111-111111111111",
+    "underwriterName": "John Smith"
+}
+
+###
+
+### Step 3: Quote the Submission
+POST {{baseUrl}}/api/{{apiVersion}}/submissions/{{e2eSubmissionId}}/quote
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+
+{
+    "premium": 75000.00,
+    "currency": "USD"
+}
+
+###
+
+### Step 4: Bind the Submission
+POST {{baseUrl}}/api/{{apiVersion}}/submissions/{{e2eSubmissionId}}/bind
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+
+###
+
+### Step 5: Verify Final State
+GET {{baseUrl}}/api/{{apiVersion}}/submissions/{{e2eSubmissionId}}
+X-Tenant-Id: {{tenantId}}
+Content-Type: application/json
+
+###

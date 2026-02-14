@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Serilog;
 using System.Text.Json;
@@ -6,6 +7,7 @@ using Vector.Api;
 using Vector.Api.Middleware;
 using Vector.Application;
 using Vector.Infrastructure;
+using Vector.Infrastructure.Persistence;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -30,6 +32,9 @@ try
     builder.Services.AddApiServices(builder.Configuration);
 
     var app = builder.Build();
+
+    // Initialize database
+    await InitializeDatabaseAsync(app);
 
     // Configure the HTTP request pipeline
     app.UseCorrelationId();
@@ -106,6 +111,46 @@ static Task WriteHealthCheckResponse(HttpContext context, HealthReport report)
         WriteIndented = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     }));
+}
+
+static async Task InitializeDatabaseAsync(WebApplication app)
+{
+    using var scope = app.Services.CreateScope();
+    var services = scope.ServiceProvider;
+    var logger = services.GetRequiredService<ILogger<Program>>();
+    var configuration = services.GetRequiredService<IConfiguration>();
+
+    try
+    {
+        var useInMemoryDatabase = configuration.GetValue<bool>("UseInMemoryDatabase");
+        var context = services.GetRequiredService<VectorDbContext>();
+
+        if (!useInMemoryDatabase)
+        {
+            logger.LogInformation("Applying database migrations...");
+            await context.Database.MigrateAsync();
+            logger.LogInformation("Database migrations applied successfully");
+        }
+        else
+        {
+            logger.LogInformation("Using in-memory database, ensuring created...");
+            await context.Database.EnsureCreatedAsync();
+        }
+
+        var seedDatabase = configuration.GetValue<bool>("SeedDatabase");
+        if (seedDatabase)
+        {
+            logger.LogInformation("Seeding database...");
+            var seeder = services.GetRequiredService<DatabaseSeeder>();
+            await seeder.SeedAsync();
+            logger.LogInformation("Database seeding completed");
+        }
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "An error occurred while initializing the database");
+        throw;
+    }
 }
 }
 catch (Exception ex)
