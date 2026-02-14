@@ -1,0 +1,77 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#6366f1'}}}%%
+sequenceDiagram
+    autonumber
+    participant Email as Shared Mailbox
+    participant Worker as Email Worker
+    participant Graph as Microsoft Graph
+    participant Bus as Service Bus
+    participant DocWorker as Doc Processing Worker
+    participant DocAI as Document Intelligence
+    participant Blob as Blob Storage
+    participant DB as SQL Database
+    participant API as Vector API
+    participant UW as Underwriter
+
+    Note over Email,UW: Email Ingestion Phase
+    loop Every 30 seconds
+        Worker->>Graph: Poll for new emails
+        Graph-->>Worker: New emails found
+    end
+
+    Worker->>Graph: Get email details
+    Graph-->>Worker: Email with attachments
+
+    Worker->>Worker: Calculate content hash
+    Worker->>DB: Check deduplication
+    DB-->>Worker: Not processed
+
+    Worker->>Blob: Upload attachments
+    Blob-->>Worker: Blob URLs
+
+    Worker->>Bus: Publish EmailReceivedEvent
+    Bus-->>DocWorker: Receive message
+
+    Note over DocWorker,DB: Document Processing Phase
+    DocWorker->>Blob: Download document
+    Blob-->>DocWorker: Document bytes
+
+    DocWorker->>DocAI: Classify document
+    DocAI-->>DocWorker: Document type
+
+    DocWorker->>DocAI: Extract fields
+    DocAI-->>DocWorker: Extracted data + confidence
+
+    DocWorker->>DB: Save ProcessingJob
+    DocWorker->>DB: Create Submission
+
+    Note over API,UW: Routing & Underwriting Phase
+    DocWorker->>Bus: Publish SubmissionCreatedEvent
+
+    API->>DB: Evaluate routing rules
+    DB-->>API: Matching rule found
+
+    API->>DB: Assign to underwriter
+    API->>UW: Notify via SignalR
+
+    UW->>API: Review submission
+    API-->>UW: Submission details
+
+    alt Quote
+        UW->>API: POST /submissions/{id}/quote
+        API->>DB: Update status, set premium
+        API-->>UW: Quote confirmed
+    else Decline
+        UW->>API: POST /submissions/{id}/decline
+        API->>DB: Update status, set reason
+        API-->>UW: Decline confirmed
+    else Request Info
+        UW->>API: POST /submissions/{id}/request-info
+        API->>DB: Update status
+        API-->>UW: Info requested
+    end
+
+    opt If Quoted
+        UW->>API: POST /submissions/{id}/bind
+        API->>DB: Update status to Bound
+        API-->>UW: Policy bound
+    end

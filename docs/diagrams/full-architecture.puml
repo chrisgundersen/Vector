@@ -1,0 +1,122 @@
+@startuml Vector Full Architecture
+!include <archimate/Archimate>
+
+title Vector - Full Enterprise Architecture (ArchiMate 3.2)
+
+skinparam backgroundColor #FEFEFE
+skinparam shadowing false
+
+' ==================== MOTIVATION LAYER ====================
+Motivation_Stakeholder(mgu, "MGU", "Managing General Underwriter")
+Motivation_Driver(efficiency, "Operational Efficiency", "Reduce manual processing")
+Motivation_Driver(accuracy, "Data Accuracy", "Improve extraction quality")
+Motivation_Goal(automation, "Automate Submission Intake", "80% straight-through processing")
+Motivation_Requirement(stp, "STP Requirement", "<30 sec processing time")
+
+' ==================== BUSINESS LAYER ====================
+Business_Actor(producer, "Producer")
+Business_Actor(underwriter, "Underwriter")
+
+Business_Process(intake, "Submission Intake")
+Business_Process(processing, "Document Processing")
+Business_Process(routing, "Routing")
+Business_Process(underwriting, "Underwriting")
+
+Business_Service(intakeSvc, "Intake Service")
+Business_Service(extractSvc, "Extraction Service")
+Business_Service(routeSvc, "Routing Service")
+Business_Service(workflowSvc, "Workflow Service")
+
+Business_Object(submission, "Submission")
+
+' ==================== APPLICATION LAYER ====================
+Application_Component(api, "Vector.Api")
+Application_Component(portal, "Web Portals")
+Application_Component(worker, "Worker Service")
+
+Application_Service(submissionSvc, "Submission API")
+Application_Service(docProcSvc, "Document Processing")
+Application_Service(routingEng, "Routing Engine")
+Application_Service(emailSvc, "Email Service")
+
+Application_DataObject(submissionData, "Submission Data")
+Application_DataObject(documentData, "Document Data")
+
+' ==================== TECHNOLOGY LAYER ====================
+Technology_Node(aks, "AKS Cluster")
+Technology_Device(sqlDb, "SQL Server")
+Technology_Device(redis, "Redis Cache")
+Technology_Device(blob, "Blob Storage")
+Technology_Device(serviceBus, "Service Bus")
+Technology_Device(docIntel, "Document Intelligence")
+
+Technology_Artifact(apiImage, "API Container")
+Technology_Artifact(workerImage, "Worker Container")
+
+Technology_SystemSoftware(dotnet, ".NET 9")
+
+' ==================== RELATIONSHIPS ====================
+
+' Motivation
+Rel_Association(mgu, efficiency)
+Rel_Association(mgu, accuracy)
+Rel_Influence(efficiency, automation)
+Rel_Influence(accuracy, automation)
+Rel_Realization(automation, stp)
+
+' Business - Actors to Processes
+Rel_Triggering(producer, intake)
+Rel_Serving(underwriting, underwriter)
+
+' Business - Process Flow
+Rel_Triggering(intake, processing)
+Rel_Triggering(processing, routing)
+Rel_Triggering(routing, underwriting)
+
+' Business - Services
+Rel_Realization(intake, intakeSvc)
+Rel_Realization(processing, extractSvc)
+Rel_Realization(routing, routeSvc)
+Rel_Realization(underwriting, workflowSvc)
+
+' Business - Objects
+Rel_Access(intake, submission, "creates")
+
+' Application - Services realize Business Services
+Rel_Realization(intakeSvc, emailSvc)
+Rel_Realization(extractSvc, docProcSvc)
+Rel_Realization(routeSvc, routingEng)
+Rel_Realization(workflowSvc, submissionSvc)
+
+' Application - Components serve Services
+Rel_Serving(api, submissionSvc)
+Rel_Serving(api, routingEng)
+Rel_Serving(worker, emailSvc)
+Rel_Serving(worker, docProcSvc)
+
+' Application - Data
+Rel_Access(submissionSvc, submissionData)
+Rel_Access(docProcSvc, documentData)
+
+' Application - Portals
+Rel_Serving(submissionSvc, portal)
+
+' Technology - Deployment
+Rel_Assignment(apiImage, api)
+Rel_Assignment(workerImage, worker)
+Rel_Assignment(dotnet, aks)
+Rel_Composition(aks, apiImage)
+Rel_Composition(aks, workerImage)
+
+' Technology - Infrastructure
+Rel_Serving(sqlDb, api)
+Rel_Serving(sqlDb, worker)
+Rel_Serving(redis, api)
+Rel_Serving(blob, worker)
+Rel_Serving(serviceBus, worker)
+Rel_Serving(docIntel, worker)
+
+' Requirements to Technology
+Rel_Realization(stp, worker)
+
+@enduml

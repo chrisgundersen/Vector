@@ -1,0 +1,65 @@
+@startuml Vector Business Layer
+!include <archimate/Archimate>
+
+title Vector - Business Architecture (ArchiMate 3.2)
+
+' Business Actors
+Business_Actor(producer, "Producer", "Insurance broker submitting business")
+Business_Actor(underwriter, "Underwriter", "Reviews and processes submissions")
+Business_Actor(mguAdmin, "MGU Administrator", "Configures system settings")
+
+' Business Roles
+Business_Role(producerRole, "Producer Role", "Submit and track submissions")
+Business_Role(underwriterRole, "Underwriter Role", "Review and decision making")
+Business_Role(adminRole, "Admin Role", "System configuration")
+
+' Business Processes
+Business_Process(submissionIntake, "Submission Intake", "Receive and process incoming submissions")
+Business_Process(documentProcessing, "Document Processing", "Extract data from documents")
+Business_Process(underwritingReview, "Underwriting Review", "Evaluate and price submissions")
+Business_Process(routingProcess, "Submission Routing", "Assign to appropriate underwriter")
+Business_Process(lifecycleManagement, "Lifecycle Management", "Quote, bind, decline workflow")
+
+' Business Services
+Business_Service(intakeService, "Intake Service", "Email and document ingestion")
+Business_Service(extractionService, "Data Extraction Service", "AI-powered document parsing")
+Business_Service(scoringService, "Scoring Service", "Appetite and quality scoring")
+Business_Service(routingService, "Routing Service", "Intelligent assignment")
+Business_Service(workflowService, "Workflow Service", "Submission lifecycle management")
+
+' Business Objects
+Business_Object(submission, "Submission", "Insurance submission package")
+Business_Object(acordForm, "ACORD Form", "Standard insurance application")
+Business_Object(lossRun, "Loss Run", "Claims history report")
+Business_Object(exposureSchedule, "Exposure Schedule", "Property/risk details")
+Business_Object(quote, "Quote", "Premium quotation")
+Business_Object(policy, "Policy", "Bound insurance policy")
+
+' Relationships
+Rel_Assignment(producer, producerRole)
+Rel_Assignment(underwriter, underwriterRole)
+Rel_Assignment(mguAdmin, adminRole)
+
+Rel_Serving(producerRole, submissionIntake)
+Rel_Serving(underwriterRole, underwritingReview)
+Rel_Serving(adminRole, routingProcess)
+
+Rel_Triggering(submissionIntake, documentProcessing)
+Rel_Triggering(documentProcessing, routingProcess)
+Rel_Triggering(routingProcess, underwritingReview)
+Rel_Triggering(underwritingReview, lifecycleManagement)
+
+Rel_Realization(submissionIntake, intakeService)
+Rel_Realization(documentProcessing, extractionService)
+Rel_Realization(documentProcessing, scoringService)
+Rel_Realization(routingProcess, routingService)
+Rel_Realization(lifecycleManagement, workflowService)
+
+Rel_Access(submissionIntake, submission, "creates")
+Rel_Access(documentProcessing, acordForm, "processes")
+Rel_Access(documentProcessing, lossRun, "processes")
+Rel_Access(documentProcessing, exposureSchedule, "processes")
+Rel_Access(underwritingReview, quote, "creates")
+Rel_Access(lifecycleManagement, policy, "creates")
+
+@enduml

@@ -1,0 +1,75 @@
+@startuml Vector Application Layer
+!include <archimate/Archimate>
+
+title Vector - Application Architecture (ArchiMate 3.2)
+
+' Application Components
+Application_Component(vectorApi, "Vector.Api", "REST API endpoints")
+Application_Component(producerPortal, "Producer Portal", "Blazor web application for producers")
+Application_Component(underwriterDashboard, "Underwriter Dashboard", "Blazor web application for underwriters")
+Application_Component(adminPortal, "Admin Portal", "Blazor web application for MGU admins")
+Application_Component(workerService, "Worker Service", "Background processing")
+
+' Application Services
+Application_Service(submissionService, "Submission Service", "Submission CRUD operations")
+Application_Service(documentService, "Document Processing Service", "Document classification and extraction")
+Application_Service(routingEngine, "Routing Engine", "Rule-based submission routing")
+Application_Service(guidelineService, "Guideline Service", "Underwriting guideline management")
+Application_Service(scoringService, "Scoring Service", "Appetite, winnability, quality scoring")
+Application_Service(emailService, "Email Intake Service", "Email polling and processing")
+
+' Application Functions
+Application_Function(emailPolling, "Email Polling", "Monitor shared mailboxes")
+Application_Function(attachmentExtraction, "Attachment Extraction", "Extract email attachments")
+Application_Function(documentClassification, "Document Classification", "Classify document types")
+Application_Function(dataExtraction, "Data Extraction", "Extract structured data")
+Application_Function(submissionCreation, "Submission Creation", "Create submission from data")
+Application_Function(ruleEvaluation, "Rule Evaluation", "Evaluate routing rules")
+Application_Function(underwriterAssignment, "Underwriter Assignment", "Assign to underwriter")
+
+' Data Objects
+Application_DataObject(submissionDto, "SubmissionDto", "Submission transfer object")
+Application_DataObject(documentDto, "ProcessedDocumentDto", "Document processing result")
+Application_DataObject(guidelineDto, "GuidelineDto", "Underwriting guideline data")
+Application_DataObject(routingDecisionDto, "RoutingDecisionDto", "Routing decision result")
+
+' Application Interfaces
+Application_Interface(restApi, "REST API", "/api/v1/*")
+Application_Interface(signalRHub, "SignalR Hub", "Real-time notifications")
+Application_Interface(healthEndpoint, "Health Endpoints", "/health/*")
+
+' Relationships - Components to Services
+Rel_Serving(vectorApi, submissionService)
+Rel_Serving(vectorApi, guidelineService)
+Rel_Serving(vectorApi, routingEngine)
+Rel_Serving(workerService, emailService)
+Rel_Serving(workerService, documentService)
+Rel_Serving(workerService, scoringService)
+
+' Relationships - Services to Functions
+Rel_Composition(emailService, emailPolling)
+Rel_Composition(emailService, attachmentExtraction)
+Rel_Composition(documentService, documentClassification)
+Rel_Composition(documentService, dataExtraction)
+Rel_Composition(submissionService, submissionCreation)
+Rel_Composition(routingEngine, ruleEvaluation)
+Rel_Composition(routingEngine, underwriterAssignment)
+
+' Relationships - Functions to Data
+Rel_Access(submissionCreation, submissionDto, "creates")
+Rel_Access(dataExtraction, documentDto, "creates")
+Rel_Access(ruleEvaluation, routingDecisionDto, "creates")
+
+' Relationships - Components to Interfaces
+Rel_Composition(vectorApi, restApi)
+Rel_Composition(vectorApi, healthEndpoint)
+Rel_Composition(producerPortal, signalRHub)
+Rel_Composition(underwriterDashboard, signalRHub)
+
+' Relationships - Portal Usage
+Rel_Serving(submissionService, producerPortal)
+Rel_Serving(submissionService, underwriterDashboard)
+Rel_Serving(guidelineService, adminPortal)
+Rel_Serving(routingEngine, adminPortal)
+
+@enduml

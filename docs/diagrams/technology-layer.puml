@@ -1,0 +1,93 @@
+@startuml Vector Technology Layer
+!include <archimate/Archimate>
+
+title Vector - Technology Architecture (ArchiMate 3.2)
+
+' Nodes
+Technology_Node(aksCluster, "Azure Kubernetes Service", "Container orchestration")
+Technology_Node(apiPod, "API Pod", "Vector.Api containers")
+Technology_Node(webPod, "Web Pod", "Blazor portal containers")
+Technology_Node(workerPod, "Worker Pod", "Background worker containers")
+
+' Infrastructure Services
+Technology_Service(computeService, "Compute Service", "Container hosting")
+Technology_Service(storageService, "Storage Service", "Persistent storage")
+Technology_Service(networkService, "Network Service", "Virtual networking")
+Technology_Service(identityService, "Identity Service", "Authentication")
+
+' System Software
+Technology_SystemSoftware(dotnet, ".NET 9 Runtime", "Application runtime")
+Technology_SystemSoftware(aspnet, "ASP.NET Core", "Web framework")
+Technology_SystemSoftware(efcore, "Entity Framework Core", "ORM")
+Technology_SystemSoftware(nginx, "NGINX Ingress", "Load balancer")
+
+' Devices/Infrastructure
+Technology_Device(sqlServer, "Azure SQL Database", "Relational database")
+Technology_Device(redisCache, "Azure Cache for Redis", "Distributed cache")
+Technology_Device(blobStorage, "Azure Blob Storage", "Document storage")
+Technology_Device(serviceBus, "Azure Service Bus", "Message broker")
+Technology_Device(documentAI, "Azure Document Intelligence", "AI document processing")
+Technology_Device(keyVault, "Azure Key Vault", "Secrets management")
+Technology_Device(appInsights, "Application Insights", "Monitoring and telemetry")
+Technology_Device(entraId, "Microsoft Entra ID", "Identity provider")
+
+' Artifacts
+Technology_Artifact(apiImage, "vector-api:latest", "API Docker image")
+Technology_Artifact(webImage, "vector-web:latest", "Web portal Docker image")
+Technology_Artifact(workerImage, "vector-worker:latest", "Worker Docker image")
+Technology_Artifact(helmChart, "vector-helm", "Kubernetes Helm chart")
+Technology_Artifact(dbMigrations, "EF Migrations", "Database schema migrations")
+
+' Communication Paths
+Technology_CommunicationNetwork(internalNetwork, "Internal VNet", "Private network")
+Technology_CommunicationNetwork(publicNetwork, "Internet", "Public access")
+
+' Relationships - Node composition
+Rel_Composition(aksCluster, apiPod)
+Rel_Composition(aksCluster, webPod)
+Rel_Composition(aksCluster, workerPod)
+
+' Relationships - Artifacts deployed to nodes
+Rel_Assignment(apiImage, apiPod)
+Rel_Assignment(webImage, webPod)
+Rel_Assignment(workerImage, workerPod)
+
+' Relationships - System software on nodes
+Rel_Assignment(dotnet, apiPod)
+Rel_Assignment(dotnet, webPod)
+Rel_Assignment(dotnet, workerPod)
+Rel_Assignment(aspnet, apiPod)
+Rel_Assignment(aspnet, webPod)
+Rel_Assignment(efcore, apiPod)
+Rel_Assignment(efcore, workerPod)
+
+' Relationships - Services realized by infrastructure
+Rel_Realization(aksCluster, computeService)
+Rel_Realization(blobStorage, storageService)
+Rel_Realization(internalNetwork, networkService)
+Rel_Realization(entraId, identityService)
+
+' Relationships - Node access to devices
+Rel_Serving(sqlServer, apiPod)
+Rel_Serving(sqlServer, workerPod)
+Rel_Serving(redisCache, apiPod)
+Rel_Serving(redisCache, workerPod)
+Rel_Serving(blobStorage, workerPod)
+Rel_Serving(serviceBus, workerPod)
+Rel_Serving(documentAI, workerPod)
+Rel_Serving(keyVault, apiPod)
+Rel_Serving(keyVault, workerPod)
+Rel_Serving(appInsights, apiPod)
+Rel_Serving(appInsights, workerPod)
+Rel_Serving(entraId, apiPod)
+
+' Relationships - Network
+Rel_Association(publicNetwork, nginx)
+Rel_Association(nginx, aksCluster)
+Rel_Association(aksCluster, internalNetwork)
+Rel_Association(internalNetwork, sqlServer)
+Rel_Association(internalNetwork, redisCache)
+Rel_Association(internalNetwork, blobStorage)
+Rel_Association(internalNetwork, serviceBus)
+
+@enduml

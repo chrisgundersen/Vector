@@ -1,0 +1,523 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<model xmlns="http://www.opengroup.org/xsd/archimate/3.0/"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.opengroup.org/xsd/archimate/3.0/ http://www.opengroup.org/xsd/archimate/3.1/archimate3_Diagram.xsd"
+       identifier="id-vector-model">
+
+  <name xml:lang="en">Vector Insurance Submission Management System</name>
+  <documentation xml:lang="en">Enterprise architecture model for Vector - an insurance submission intake and processing system built with .NET 9, Azure services, and modern cloud-native patterns.</documentation>
+
+  <elements>
+    <!-- ==================== MOTIVATION LAYER ==================== -->
+    <element identifier="id-stakeholder-mgu" xsi:type="Stakeholder">
+      <name xml:lang="en">Managing General Underwriter (MGU)</name>
+      <documentation xml:lang="en">Primary stakeholder operating the Vector system to manage insurance submissions from producers.</documentation>
+    </element>
+
+    <element identifier="id-driver-efficiency" xsi:type="Driver">
+      <name xml:lang="en">Operational Efficiency</name>
+      <documentation xml:lang="en">Reduce manual processing effort and cycle time for insurance submissions.</documentation>
+    </element>
+
+    <element identifier="id-driver-accuracy" xsi:type="Driver">
+      <name xml:lang="en">Data Accuracy</name>
+      <documentation xml:lang="en">Improve data extraction quality and reduce manual data entry errors.</documentation>
+    </element>
+
+    <element identifier="id-goal-automation" xsi:type="Goal">
+      <name xml:lang="en">Automate Submission Intake</name>
+      <documentation xml:lang="en">Achieve 80% straight-through processing for standard submissions.</documentation>
+    </element>
+
+    <element identifier="id-req-stp" xsi:type="Requirement">
+      <name xml:lang="en">STP Processing Time</name>
+      <documentation xml:lang="en">Process emails to structured submissions in under 30 seconds.</documentation>
+    </element>
+
+    <!-- ==================== BUSINESS LAYER ==================== -->
+    <element identifier="id-actor-producer" xsi:type="BusinessActor">
+      <name xml:lang="en">Producer</name>
+      <documentation xml:lang="en">Insurance broker or agent submitting business to the MGU.</documentation>
+    </element>
+
+    <element identifier="id-actor-underwriter" xsi:type="BusinessActor">
+      <name xml:lang="en">Underwriter</name>
+      <documentation xml:lang="en">Reviews and processes insurance submissions, makes quote/bind decisions.</documentation>
+    </element>
+
+    <element identifier="id-actor-admin" xsi:type="BusinessActor">
+      <name xml:lang="en">MGU Administrator</name>
+      <documentation xml:lang="en">Configures underwriting guidelines, routing rules, and system settings.</documentation>
+    </element>
+
+    <element identifier="id-process-intake" xsi:type="BusinessProcess">
+      <name xml:lang="en">Submission Intake</name>
+      <documentation xml:lang="en">Receive and process incoming insurance submissions from email.</documentation>
+    </element>
+
+    <element identifier="id-process-docproc" xsi:type="BusinessProcess">
+      <name xml:lang="en">Document Processing</name>
+      <documentation xml:lang="en">Classify documents and extract structured data using AI.</documentation>
+    </element>
+
+    <element identifier="id-process-routing" xsi:type="BusinessProcess">
+      <name xml:lang="en">Submission Routing</name>
+      <documentation xml:lang="en">Route submissions to appropriate underwriters based on rules.</documentation>
+    </element>
+
+    <element identifier="id-process-underwriting" xsi:type="BusinessProcess">
+      <name xml:lang="en">Underwriting Review</name>
+      <documentation xml:lang="en">Review submission details, assess risk, and make decisions.</documentation>
+    </element>
+
+    <element identifier="id-process-lifecycle" xsi:type="BusinessProcess">
+      <name xml:lang="en">Lifecycle Management</name>
+      <documentation xml:lang="en">Manage submission through quote, bind, or decline workflow.</documentation>
+    </element>
+
+    <element identifier="id-service-intake" xsi:type="BusinessService">
+      <name xml:lang="en">Intake Service</name>
+      <documentation xml:lang="en">Email monitoring and document ingestion capability.</documentation>
+    </element>
+
+    <element identifier="id-service-extraction" xsi:type="BusinessService">
+      <name xml:lang="en">Data Extraction Service</name>
+      <documentation xml:lang="en">AI-powered document parsing and data extraction.</documentation>
+    </element>
+
+    <element identifier="id-service-scoring" xsi:type="BusinessService">
+      <name xml:lang="en">Scoring Service</name>
+      <documentation xml:lang="en">Appetite, winnability, and data quality scoring.</documentation>
+    </element>
+
+    <element identifier="id-service-routing" xsi:type="BusinessService">
+      <name xml:lang="en">Routing Service</name>
+      <documentation xml:lang="en">Intelligent submission assignment to underwriters.</documentation>
+    </element>
+
+    <element identifier="id-service-workflow" xsi:type="BusinessService">
+      <name xml:lang="en">Workflow Service</name>
+      <documentation xml:lang="en">Submission lifecycle management (quote, bind, decline).</documentation>
+    </element>
+
+    <element identifier="id-object-submission" xsi:type="BusinessObject">
+      <name xml:lang="en">Submission</name>
+      <documentation xml:lang="en">Insurance submission package including application, loss history, and exposures.</documentation>
+    </element>
+
+    <element identifier="id-object-acordform" xsi:type="BusinessObject">
+      <name xml:lang="en">ACORD Form</name>
+      <documentation xml:lang="en">Standard insurance application form (125, 126, 130, 140).</documentation>
+    </element>
+
+    <element identifier="id-object-lossrun" xsi:type="BusinessObject">
+      <name xml:lang="en">Loss Run</name>
+      <documentation xml:lang="en">Historical claims and loss history report.</documentation>
+    </element>
+
+    <element identifier="id-object-quote" xsi:type="BusinessObject">
+      <name xml:lang="en">Quote</name>
+      <documentation xml:lang="en">Premium quotation for insurance coverage.</documentation>
+    </element>
+
+    <element identifier="id-object-policy" xsi:type="BusinessObject">
+      <name xml:lang="en">Policy</name>
+      <documentation xml:lang="en">Bound insurance policy document.</documentation>
+    </element>
+
+    <!-- ==================== APPLICATION LAYER ==================== -->
+    <element identifier="id-app-api" xsi:type="ApplicationComponent">
+      <name xml:lang="en">Vector.Api</name>
+      <documentation xml:lang="en">REST API application providing endpoints for all system operations.</documentation>
+    </element>
+
+    <element identifier="id-app-producer-portal" xsi:type="ApplicationComponent">
+      <name xml:lang="en">Producer Portal</name>
+      <documentation xml:lang="en">Blazor Server web application for producers to track submissions.</documentation>
+    </element>
+
+    <element identifier="id-app-uw-dashboard" xsi:type="ApplicationComponent">
+      <name xml:lang="en">Underwriter Dashboard</name>
+      <documentation xml:lang="en">Blazor Server web application for underwriters to manage workqueue.</documentation>
+    </element>
+
+    <element identifier="id-app-admin-portal" xsi:type="ApplicationComponent">
+      <name xml:lang="en">Admin Portal</name>
+      <documentation xml:lang="en">Blazor Server web application for MGU administrators.</documentation>
+    </element>
+
+    <element identifier="id-app-worker" xsi:type="ApplicationComponent">
+      <name xml:lang="en">Worker Service</name>
+      <documentation xml:lang="en">Background service for email polling and document processing.</documentation>
+    </element>
+
+    <element identifier="id-appsvc-submission" xsi:type="ApplicationService">
+      <name xml:lang="en">Submission API</name>
+      <documentation xml:lang="en">CRUD operations and workflow actions for submissions.</documentation>
+    </element>
+
+    <element identifier="id-appsvc-docproc" xsi:type="ApplicationService">
+      <name xml:lang="en">Document Processing Service</name>
+      <documentation xml:lang="en">Document classification and data extraction orchestration.</documentation>
+    </element>
+
+    <element identifier="id-appsvc-routing" xsi:type="ApplicationService">
+      <name xml:lang="en">Routing Engine</name>
+      <documentation xml:lang="en">Rule evaluation and underwriter assignment logic.</documentation>
+    </element>
+
+    <element identifier="id-appsvc-guideline" xsi:type="ApplicationService">
+      <name xml:lang="en">Guideline Service</name>
+      <documentation xml:lang="en">Underwriting guideline management and validation.</documentation>
+    </element>
+
+    <element identifier="id-appsvc-email" xsi:type="ApplicationService">
+      <name xml:lang="en">Email Intake Service</name>
+      <documentation xml:lang="en">Email polling and attachment extraction.</documentation>
+    </element>
+
+    <element identifier="id-appfunc-polling" xsi:type="ApplicationFunction">
+      <name xml:lang="en">Email Polling</name>
+      <documentation xml:lang="en">Monitor shared mailboxes for new emails via Microsoft Graph.</documentation>
+    </element>
+
+    <element identifier="id-appfunc-classification" xsi:type="ApplicationFunction">
+      <name xml:lang="en">Document Classification</name>
+      <documentation xml:lang="en">Classify document types using Azure Document Intelligence.</documentation>
+    </element>
+
+    <element identifier="id-appfunc-extraction" xsi:type="ApplicationFunction">
+      <name xml:lang="en">Data Extraction</name>
+      <documentation xml:lang="en">Extract structured data from ACORD forms and other documents.</documentation>
+    </element>
+
+    <element identifier="id-appfunc-scoring" xsi:type="ApplicationFunction">
+      <name xml:lang="en">Scoring Calculation</name>
+      <documentation xml:lang="en">Calculate appetite, winnability, and data quality scores.</documentation>
+    </element>
+
+    <element identifier="id-appdata-submission" xsi:type="DataObject">
+      <name xml:lang="en">Submission Data</name>
+      <documentation xml:lang="en">Structured submission entity with coverages, locations, and loss history.</documentation>
+    </element>
+
+    <element identifier="id-appdata-document" xsi:type="DataObject">
+      <name xml:lang="en">Processed Document</name>
+      <documentation xml:lang="en">Document processing result with extracted fields and confidence scores.</documentation>
+    </element>
+
+    <element identifier="id-appdata-guideline" xsi:type="DataObject">
+      <name xml:lang="en">Underwriting Guideline</name>
+      <documentation xml:lang="en">Configurable appetite rules and eligibility criteria.</documentation>
+    </element>
+
+    <element identifier="id-appinterface-rest" xsi:type="ApplicationInterface">
+      <name xml:lang="en">REST API</name>
+      <documentation xml:lang="en">RESTful HTTP API at /api/v1/* endpoints.</documentation>
+    </element>
+
+    <element identifier="id-appinterface-signalr" xsi:type="ApplicationInterface">
+      <name xml:lang="en">SignalR Hub</name>
+      <documentation xml:lang="en">Real-time WebSocket notifications for dashboards.</documentation>
+    </element>
+
+    <!-- ==================== TECHNOLOGY LAYER ==================== -->
+    <element identifier="id-node-aks" xsi:type="Node">
+      <name xml:lang="en">Azure Kubernetes Service</name>
+      <documentation xml:lang="en">Managed Kubernetes cluster for container orchestration.</documentation>
+    </element>
+
+    <element identifier="id-node-apipod" xsi:type="Node">
+      <name xml:lang="en">API Pod</name>
+      <documentation xml:lang="en">Kubernetes pod running Vector.Api containers (3 replicas).</documentation>
+    </element>
+
+    <element identifier="id-node-webpod" xsi:type="Node">
+      <name xml:lang="en">Web Pod</name>
+      <documentation xml:lang="en">Kubernetes pod running Blazor portal containers (2 replicas).</documentation>
+    </element>
+
+    <element identifier="id-node-workerpod" xsi:type="Node">
+      <name xml:lang="en">Worker Pod</name>
+      <documentation xml:lang="en">Kubernetes pod running background worker containers (2 replicas).</documentation>
+    </element>
+
+    <element identifier="id-device-sql" xsi:type="Device">
+      <name xml:lang="en">Azure SQL Database</name>
+      <documentation xml:lang="en">Managed SQL Server database with temporal tables for audit.</documentation>
+    </element>
+
+    <element identifier="id-device-redis" xsi:type="Device">
+      <name xml:lang="en">Azure Cache for Redis</name>
+      <documentation xml:lang="en">Distributed caching for session and data caching.</documentation>
+    </element>
+
+    <element identifier="id-device-blob" xsi:type="Device">
+      <name xml:lang="en">Azure Blob Storage</name>
+      <documentation xml:lang="en">Object storage for documents and attachments.</documentation>
+    </element>
+
+    <element identifier="id-device-servicebus" xsi:type="Device">
+      <name xml:lang="en">Azure Service Bus</name>
+      <documentation xml:lang="en">Enterprise message broker for async processing.</documentation>
+    </element>
+
+    <element identifier="id-device-docai" xsi:type="Device">
+      <name xml:lang="en">Azure Document Intelligence</name>
+      <documentation xml:lang="en">AI service for document classification and data extraction.</documentation>
+    </element>
+
+    <element identifier="id-device-keyvault" xsi:type="Device">
+      <name xml:lang="en">Azure Key Vault</name>
+      <documentation xml:lang="en">Secrets and certificate management.</documentation>
+    </element>
+
+    <element identifier="id-device-appinsights" xsi:type="Device">
+      <name xml:lang="en">Application Insights</name>
+      <documentation xml:lang="en">Application performance monitoring and telemetry.</documentation>
+    </element>
+
+    <element identifier="id-device-entraid" xsi:type="Device">
+      <name xml:lang="en">Microsoft Entra ID</name>
+      <documentation xml:lang="en">Identity provider for authentication and authorization.</documentation>
+    </element>
+
+    <element identifier="id-systemsoftware-dotnet" xsi:type="SystemSoftware">
+      <name xml:lang="en">.NET 9 Runtime</name>
+      <documentation xml:lang="en">Application runtime environment.</documentation>
+    </element>
+
+    <element identifier="id-systemsoftware-aspnet" xsi:type="SystemSoftware">
+      <name xml:lang="en">ASP.NET Core 9</name>
+      <documentation xml:lang="en">Web application framework.</documentation>
+    </element>
+
+    <element identifier="id-systemsoftware-efcore" xsi:type="SystemSoftware">
+      <name xml:lang="en">Entity Framework Core 9</name>
+      <documentation xml:lang="en">Object-relational mapper for data access.</documentation>
+    </element>
+
+    <element identifier="id-systemsoftware-nginx" xsi:type="SystemSoftware">
+      <name xml:lang="en">NGINX Ingress Controller</name>
+      <documentation xml:lang="en">Kubernetes ingress for load balancing and TLS termination.</documentation>
+    </element>
+
+    <element identifier="id-artifact-apiimage" xsi:type="Artifact">
+      <name xml:lang="en">vector-api:latest</name>
+      <documentation xml:lang="en">Docker container image for Vector.Api.</documentation>
+    </element>
+
+    <element identifier="id-artifact-webimage" xsi:type="Artifact">
+      <name xml:lang="en">vector-web:latest</name>
+      <documentation xml:lang="en">Docker container image for Blazor web portals.</documentation>
+    </element>
+
+    <element identifier="id-artifact-workerimage" xsi:type="Artifact">
+      <name xml:lang="en">vector-worker:latest</name>
+      <documentation xml:lang="en">Docker container image for background worker.</documentation>
+    </element>
+
+    <element identifier="id-network-internal" xsi:type="CommunicationNetwork">
+      <name xml:lang="en">Internal VNet</name>
+      <documentation xml:lang="en">Azure Virtual Network for private communication.</documentation>
+    </element>
+
+    <element identifier="id-network-public" xsi:type="CommunicationNetwork">
+      <name xml:lang="en">Internet</name>
+      <documentation xml:lang="en">Public internet access via ingress controller.</documentation>
+    </element>
+  </elements>
+
+  <relationships>
+    <!-- Motivation relationships -->
+    <relationship identifier="id-rel-1" xsi:type="Association" source="id-stakeholder-mgu" target="id-driver-efficiency"/>
+    <relationship identifier="id-rel-2" xsi:type="Association" source="id-stakeholder-mgu" target="id-driver-accuracy"/>
+    <relationship identifier="id-rel-3" xsi:type="Influence" source="id-driver-efficiency" target="id-goal-automation"/>
+    <relationship identifier="id-rel-4" xsi:type="Influence" source="id-driver-accuracy" target="id-goal-automation"/>
+    <relationship identifier="id-rel-5" xsi:type="Realization" source="id-goal-automation" target="id-req-stp"/>
+
+    <!-- Business process flow -->
+    <relationship identifier="id-rel-10" xsi:type="Triggering" source="id-actor-producer" target="id-process-intake"/>
+    <relationship identifier="id-rel-11" xsi:type="Triggering" source="id-process-intake" target="id-process-docproc"/>
+    <relationship identifier="id-rel-12" xsi:type="Triggering" source="id-process-docproc" target="id-process-routing"/>
+    <relationship identifier="id-rel-13" xsi:type="Triggering" source="id-process-routing" target="id-process-underwriting"/>
+    <relationship identifier="id-rel-14" xsi:type="Triggering" source="id-process-underwriting" target="id-process-lifecycle"/>
+    <relationship identifier="id-rel-15" xsi:type="Serving" source="id-process-lifecycle" target="id-actor-underwriter"/>
+
+    <!-- Business service realization -->
+    <relationship identifier="id-rel-20" xsi:type="Realization" source="id-process-intake" target="id-service-intake"/>
+    <relationship identifier="id-rel-21" xsi:type="Realization" source="id-process-docproc" target="id-service-extraction"/>
+    <relationship identifier="id-rel-22" xsi:type="Realization" source="id-process-routing" target="id-service-routing"/>
+    <relationship identifier="id-rel-23" xsi:type="Realization" source="id-process-lifecycle" target="id-service-workflow"/>
+
+    <!-- Business object access -->
+    <relationship identifier="id-rel-30" xsi:type="Access" source="id-process-intake" target="id-object-submission"/>
+    <relationship identifier="id-rel-31" xsi:type="Access" source="id-process-docproc" target="id-object-acordform"/>
+    <relationship identifier="id-rel-32" xsi:type="Access" source="id-process-lifecycle" target="id-object-quote"/>
+    <relationship identifier="id-rel-33" xsi:type="Access" source="id-process-lifecycle" target="id-object-policy"/>
+
+    <!-- Application service realization of business services -->
+    <relationship identifier="id-rel-40" xsi:type="Realization" source="id-appsvc-email" target="id-service-intake"/>
+    <relationship identifier="id-rel-41" xsi:type="Realization" source="id-appsvc-docproc" target="id-service-extraction"/>
+    <relationship identifier="id-rel-42" xsi:type="Realization" source="id-appsvc-routing" target="id-service-routing"/>
+    <relationship identifier="id-rel-43" xsi:type="Realization" source="id-appsvc-submission" target="id-service-workflow"/>
+
+    <!-- Application component to service -->
+    <relationship identifier="id-rel-50" xsi:type="Serving" source="id-app-api" target="id-appsvc-submission"/>
+    <relationship identifier="id-rel-51" xsi:type="Serving" source="id-app-api" target="id-appsvc-routing"/>
+    <relationship identifier="id-rel-52" xsi:type="Serving" source="id-app-api" target="id-appsvc-guideline"/>
+    <relationship identifier="id-rel-53" xsi:type="Serving" source="id-app-worker" target="id-appsvc-email"/>
+    <relationship identifier="id-rel-54" xsi:type="Serving" source="id-app-worker" target="id-appsvc-docproc"/>
+
+    <!-- Application component to portal -->
+    <relationship identifier="id-rel-60" xsi:type="Serving" source="id-appsvc-submission" target="id-app-producer-portal"/>
+    <relationship identifier="id-rel-61" xsi:type="Serving" source="id-appsvc-submission" target="id-app-uw-dashboard"/>
+    <relationship identifier="id-rel-62" xsi:type="Serving" source="id-appsvc-guideline" target="id-app-admin-portal"/>
+
+    <!-- Application data access -->
+    <relationship identifier="id-rel-70" xsi:type="Access" source="id-appsvc-submission" target="id-appdata-submission"/>
+    <relationship identifier="id-rel-71" xsi:type="Access" source="id-appsvc-docproc" target="id-appdata-document"/>
+    <relationship identifier="id-rel-72" xsi:type="Access" source="id-appsvc-guideline" target="id-appdata-guideline"/>
+
+    <!-- Application interfaces -->
+    <relationship identifier="id-rel-80" xsi:type="Composition" source="id-app-api" target="id-appinterface-rest"/>
+    <relationship identifier="id-rel-81" xsi:type="Composition" source="id-app-uw-dashboard" target="id-appinterface-signalr"/>
+
+    <!-- Technology deployment -->
+    <relationship identifier="id-rel-90" xsi:type="Composition" source="id-node-aks" target="id-node-apipod"/>
+    <relationship identifier="id-rel-91" xsi:type="Composition" source="id-node-aks" target="id-node-webpod"/>
+    <relationship identifier="id-rel-92" xsi:type="Composition" source="id-node-aks" target="id-node-workerpod"/>
+
+    <relationship identifier="id-rel-100" xsi:type="Assignment" source="id-artifact-apiimage" target="id-node-apipod"/>
+    <relationship identifier="id-rel-101" xsi:type="Assignment" source="id-artifact-webimage" target="id-node-webpod"/>
+    <relationship identifier="id-rel-102" xsi:type="Assignment" source="id-artifact-workerimage" target="id-node-workerpod"/>
+
+    <!-- Technology serving -->
+    <relationship identifier="id-rel-110" xsi:type="Serving" source="id-device-sql" target="id-app-api"/>
+    <relationship identifier="id-rel-111" xsi:type="Serving" source="id-device-sql" target="id-app-worker"/>
+    <relationship identifier="id-rel-112" xsi:type="Serving" source="id-device-redis" target="id-app-api"/>
+    <relationship identifier="id-rel-113" xsi:type="Serving" source="id-device-blob" target="id-app-worker"/>
+    <relationship identifier="id-rel-114" xsi:type="Serving" source="id-device-servicebus" target="id-app-worker"/>
+    <relationship identifier="id-rel-115" xsi:type="Serving" source="id-device-docai" target="id-app-worker"/>
+    <relationship identifier="id-rel-116" xsi:type="Serving" source="id-device-entraid" target="id-app-api"/>
+
+    <!-- Network associations -->
+    <relationship identifier="id-rel-120" xsi:type="Association" source="id-network-public" target="id-systemsoftware-nginx"/>
+    <relationship identifier="id-rel-121" xsi:type="Association" source="id-systemsoftware-nginx" target="id-node-aks"/>
+    <relationship identifier="id-rel-122" xsi:type="Association" source="id-node-aks" target="id-network-internal"/>
+  </relationships>
+
+  <organizations>
+    <item>
+      <label xml:lang="en">Motivation</label>
+      <item identifierRef="id-stakeholder-mgu"/>
+      <item identifierRef="id-driver-efficiency"/>
+      <item identifierRef="id-driver-accuracy"/>
+      <item identifierRef="id-goal-automation"/>
+      <item identifierRef="id-req-stp"/>
+    </item>
+    <item>
+      <label xml:lang="en">Business Layer</label>
+      <item>
+        <label xml:lang="en">Actors</label>
+        <item identifierRef="id-actor-producer"/>
+        <item identifierRef="id-actor-underwriter"/>
+        <item identifierRef="id-actor-admin"/>
+      </item>
+      <item>
+        <label xml:lang="en">Processes</label>
+        <item identifierRef="id-process-intake"/>
+        <item identifierRef="id-process-docproc"/>
+        <item identifierRef="id-process-routing"/>
+        <item identifierRef="id-process-underwriting"/>
+        <item identifierRef="id-process-lifecycle"/>
+      </item>
+      <item>
+        <label xml:lang="en">Services</label>
+        <item identifierRef="id-service-intake"/>
+        <item identifierRef="id-service-extraction"/>
+        <item identifierRef="id-service-scoring"/>
+        <item identifierRef="id-service-routing"/>
+        <item identifierRef="id-service-workflow"/>
+      </item>
+      <item>
+        <label xml:lang="en">Objects</label>
+        <item identifierRef="id-object-submission"/>
+        <item identifierRef="id-object-acordform"/>
+        <item identifierRef="id-object-lossrun"/>
+        <item identifierRef="id-object-quote"/>
+        <item identifierRef="id-object-policy"/>
+      </item>
+    </item>
+    <item>
+      <label xml:lang="en">Application Layer</label>
+      <item>
+        <label xml:lang="en">Components</label>
+        <item identifierRef="id-app-api"/>
+        <item identifierRef="id-app-producer-portal"/>
+        <item identifierRef="id-app-uw-dashboard"/>
+        <item identifierRef="id-app-admin-portal"/>
+        <item identifierRef="id-app-worker"/>
+      </item>
+      <item>
+        <label xml:lang="en">Services</label>
+        <item identifierRef="id-appsvc-submission"/>
+        <item identifierRef="id-appsvc-docproc"/>
+        <item identifierRef="id-appsvc-routing"/>
+        <item identifierRef="id-appsvc-guideline"/>
+        <item identifierRef="id-appsvc-email"/>
+      </item>
+      <item>
+        <label xml:lang="en">Data Objects</label>
+        <item identifierRef="id-appdata-submission"/>
+        <item identifierRef="id-appdata-document"/>
+        <item identifierRef="id-appdata-guideline"/>
+      </item>
+    </item>
+    <item>
+      <label xml:lang="en">Technology Layer</label>
+      <item>
+        <label xml:lang="en">Infrastructure</label>
+        <item identifierRef="id-node-aks"/>
+        <item identifierRef="id-device-sql"/>
+        <item identifierRef="id-device-redis"/>
+        <item identifierRef="id-device-blob"/>
+        <item identifierRef="id-device-servicebus"/>
+        <item identifierRef="id-device-docai"/>
+        <item identifierRef="id-device-keyvault"/>
+        <item identifierRef="id-device-appinsights"/>
+        <item identifierRef="id-device-entraid"/>
+      </item>
+      <item>
+        <label xml:lang="en">Artifacts</label>
+        <item identifierRef="id-artifact-apiimage"/>
+        <item identifierRef="id-artifact-webimage"/>
+        <item identifierRef="id-artifact-workerimage"/>
+      </item>
+    </item>
+  </organizations>
+
+  <propertyDefinitions>
+    <propertyDefinition identifier="propdef-version" type="string">
+      <name xml:lang="en">Version</name>
+    </propertyDefinition>
+    <propertyDefinition identifier="propdef-owner" type="string">
+      <name xml:lang="en">Owner</name>
+    </propertyDefinition>
+    <propertyDefinition identifier="propdef-lifecycle" type="string">
+      <name xml:lang="en">Lifecycle Status</name>
+    </propertyDefinition>
+  </propertyDefinitions>
+
+  <properties>
+    <property propertyDefinitionRef="propdef-version">
+      <value xml:lang="en">1.0.0</value>
+    </property>
+    <property propertyDefinitionRef="propdef-owner">
+      <value xml:lang="en">Vector Development Team</value>
+    </property>
+    <property propertyDefinitionRef="propdef-lifecycle">
+      <value xml:lang="en">Active</value>
+    </property>
+  </properties>
+</model>

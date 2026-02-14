@@ -1,0 +1,133 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#6366f1'}}}%%
+classDiagram
+    direction TB
+
+    class Submission {
+        <<Aggregate Root>>
+        +Guid Id
+        +Guid TenantId
+        +string SubmissionNumber
+        +SubmissionStatus Status
+        +InsuredParty Insured
+        +Money? QuotedPremium
+        +int? AppetiteScore
+        +int? WinnabilityScore
+        +int? DataQualityScore
+        +MarkAsReceived()
+        +AssignToUnderwriter()
+        +Quote(premium)
+        +Decline(reason)
+        +Bind()
+        +RequestInformation(message)
+    }
+
+    class InsuredParty {
+        <<Value Object>>
+        +string Name
+        +string? DBA
+        +string? TaxId
+        +int? YearsInBusiness
+        +string? Website
+    }
+
+    class Coverage {
+        <<Entity>>
+        +Guid Id
+        +CoverageType Type
+        +Money? RequestedLimit
+        +Money? RequestedDeductible
+        +DateTime? EffectiveDate
+        +bool IsCurrentlyInsured
+    }
+
+    class ExposureLocation {
+        <<Entity>>
+        +Guid Id
+        +int LocationNumber
+        +Address Address
+        +string? OccupancyType
+        +int? YearBuilt
+        +int? SquareFootage
+        +Money TotalInsuredValue
+    }
+
+    class LossHistoryItem {
+        <<Entity>>
+        +Guid Id
+        +DateTime OccurrenceDate
+        +LossType Type
+        +string Description
+        +Money TotalIncurred
+        +ClaimStatus Status
+    }
+
+    class Address {
+        <<Value Object>>
+        +string Street1
+        +string? Street2
+        +string City
+        +string State
+        +string PostalCode
+        +string Country
+    }
+
+    class Money {
+        <<Value Object>>
+        +decimal Amount
+        +string Currency
+        +Add(other)
+        +Subtract(other)
+    }
+
+    class ProcessingJob {
+        <<Aggregate Root>>
+        +Guid Id
+        +Guid TenantId
+        +ProcessingStatus Status
+        +int? DataQualityScore
+        +StartProcessing()
+        +Complete()
+        +Fail(reason)
+    }
+
+    class ProcessedDocument {
+        <<Entity>>
+        +Guid Id
+        +DocumentType Type
+        +decimal ConfidenceScore
+        +ExtractedField[] Fields
+    }
+
+    class UnderwritingGuideline {
+        <<Aggregate Root>>
+        +Guid Id
+        +Guid TenantId
+        +string Name
+        +bool IsActive
+        +string LineOfBusiness
+        +Activate()
+        +Deactivate()
+        +AddRule()
+    }
+
+    class RoutingRule {
+        <<Aggregate Root>>
+        +Guid Id
+        +string Name
+        +RoutingStrategy Strategy
+        +int Priority
+        +bool IsActive
+        +Activate()
+        +Deactivate()
+    }
+
+    Submission "1" *-- "1" InsuredParty : contains
+    Submission "1" *-- "0..*" Coverage : contains
+    Submission "1" *-- "0..*" ExposureLocation : contains
+    Submission "1" *-- "0..*" LossHistoryItem : contains
+    ExposureLocation "1" *-- "1" Address : contains
+    Coverage "1" *-- "0..1" Money : requestedLimit
+    Coverage "1" *-- "0..1" Money : requestedDeductible
+    LossHistoryItem "1" *-- "1" Money : totalIncurred
+    ProcessingJob "1" *-- "0..*" ProcessedDocument : contains
+    Submission "0..1" -- "0..1" ProcessingJob : createdFrom

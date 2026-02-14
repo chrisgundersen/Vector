@@ -1,0 +1,27 @@
+%%{init: {'theme': 'base'}}%%
+C4Context
+    title Vector System Context Diagram
+
+    Person(producer, "Producer", "Insurance broker/agent submitting business")
+    Person(underwriter, "Underwriter", "Reviews and processes submissions")
+    Person(admin, "MGU Administrator", "Configures system settings")
+
+    System(vector, "Vector", "Insurance submission management system")
+
+    System_Ext(m365, "Microsoft 365", "Email services for submission intake")
+    System_Ext(docai, "Azure Document Intelligence", "AI document processing")
+    System_Ext(pas, "Policy Admin System", "Policy issuance and management")
+    System_Ext(crm, "CRM System", "Customer relationship management")
+    System_Ext(entra, "Microsoft Entra ID", "Identity and access management")
+
+    Rel(producer, vector, "Submits business, tracks status", "HTTPS")
+    Rel(underwriter, vector, "Reviews, quotes, binds", "HTTPS")
+    Rel(admin, vector, "Configures guidelines, rules", "HTTPS")
+
+    Rel(vector, m365, "Polls emails, downloads attachments", "Graph API")
+    Rel(vector, docai, "Classifies docs, extracts data", "REST API")
+    Rel(vector, pas, "Creates policies on bind", "REST API")
+    Rel(vector, crm, "Syncs customer data", "REST API")
+    Rel(entra, vector, "Authenticates users", "OAuth 2.0")
+
+    UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")

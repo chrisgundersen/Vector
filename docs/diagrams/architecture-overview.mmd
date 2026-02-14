@@ -1,0 +1,76 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#6366f1', 'primaryTextColor': '#fff', 'primaryBorderColor': '#4f46e5', 'lineColor': '#64748b', 'secondaryColor': '#f1f5f9', 'tertiaryColor': '#e2e8f0'}}}%%
+graph TB
+    subgraph Clients["Client Applications"]
+        Producer["Producer Portal<br/>(Blazor)"]
+        Underwriter["Underwriter Dashboard<br/>(Blazor)"]
+        Admin["Admin Portal<br/>(Blazor)"]
+        External["External Systems<br/>(REST API)"]
+    end
+
+    subgraph Gateway["API Gateway"]
+        Ingress["NGINX Ingress<br/>(TLS Termination)"]
+    end
+
+    subgraph API["Application Layer"]
+        VectorApi["Vector.Api<br/>(.NET 9)"]
+        SignalR["SignalR Hub<br/>(Real-time)"]
+    end
+
+    subgraph Workers["Background Services"]
+        EmailWorker["Email Polling<br/>Worker"]
+        DocWorker["Document Processing<br/>Worker"]
+    end
+
+    subgraph Storage["Data Storage"]
+        SQL[(SQL Server<br/>Submissions, Guidelines)]
+        Redis[(Redis<br/>Cache, Sessions)]
+        Blob[(Blob Storage<br/>Documents)]
+    end
+
+    subgraph Messaging["Message Bus"]
+        ServiceBus["Azure Service Bus<br/>Queues"]
+    end
+
+    subgraph External["External Services"]
+        Graph["Microsoft Graph<br/>Email API"]
+        DocAI["Azure Document<br/>Intelligence"]
+        EntraID["Microsoft Entra ID<br/>Authentication"]
+    end
+
+    Producer --> Ingress
+    Underwriter --> Ingress
+    Admin --> Ingress
+    External --> Ingress
+
+    Ingress --> VectorApi
+    VectorApi --> SignalR
+
+    SignalR --> Producer
+    SignalR --> Underwriter
+
+    VectorApi --> SQL
+    VectorApi --> Redis
+    Workers --> SQL
+    Workers --> Redis
+    Workers --> Blob
+
+    Workers --> ServiceBus
+    ServiceBus --> Workers
+
+    EmailWorker --> Graph
+    DocWorker --> DocAI
+    VectorApi --> EntraID
+
+    classDef client fill:#818cf8,stroke:#4f46e5,color:#fff
+    classDef api fill:#6366f1,stroke:#4338ca,color:#fff
+    classDef worker fill:#8b5cf6,stroke:#7c3aed,color:#fff
+    classDef storage fill:#0ea5e9,stroke:#0284c7,color:#fff
+    classDef external fill:#10b981,stroke:#059669,color:#fff
+    classDef messaging fill:#f59e0b,stroke:#d97706,color:#fff
+
+    class Producer,Underwriter,Admin,External client
+    class VectorApi,SignalR,Ingress api
+    class EmailWorker,DocWorker worker
+    class SQL,Redis,Blob storage
+    class Graph,DocAI,EntraID external
+    class ServiceBus messaging
