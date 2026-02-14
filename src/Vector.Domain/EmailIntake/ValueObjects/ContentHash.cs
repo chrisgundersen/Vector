@@ -9,8 +9,13 @@ namespace Vector.Domain.EmailIntake.ValueObjects;
 /// </summary>
 public sealed class ContentHash : ValueObject
 {
-    public string Value { get; }
-    public string Algorithm { get; }
+    public string Value { get; private set; }
+    public string Algorithm { get; private set; }
+
+    // EF Core constructor
+#pragma warning disable CS8618 // Non-nullable field must contain a non-null value
+    private ContentHash() { }
+#pragma warning restore CS8618
 
     private ContentHash(string value, string algorithm)
     {

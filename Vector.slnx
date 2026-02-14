@@ -13,6 +13,7 @@
     <Project Path="tests/Vector.Api.IntegrationTests/Vector.Api.IntegrationTests.csproj" />
     <Project Path="tests/Vector.Application.UnitTests/Vector.Application.UnitTests.csproj" />
     <Project Path="tests/Vector.Domain.UnitTests/Vector.Domain.UnitTests.csproj" />
+    <Project Path="tests/Vector.EndToEnd.Tests/Vector.EndToEnd.Tests.csproj" />
     <Project Path="tests/Vector.Infrastructure.IntegrationTests/Vector.Infrastructure.IntegrationTests.csproj" />
   </Folder>
 </Solution>

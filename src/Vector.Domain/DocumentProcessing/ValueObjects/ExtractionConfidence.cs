@@ -7,7 +7,10 @@ namespace Vector.Domain.DocumentProcessing.ValueObjects;
 /// </summary>
 public sealed class ExtractionConfidence : ValueObject
 {
-    public decimal Score { get; }
+    public decimal Score { get; private set; }
+
+    // EF Core constructor
+    private ExtractionConfidence() { }
 
     private ExtractionConfidence(decimal score)
     {

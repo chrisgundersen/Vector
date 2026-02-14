@@ -8,7 +8,12 @@ namespace Vector.Domain.EmailIntake.ValueObjects;
 /// </summary>
 public sealed partial class EmailAddress : ValueObject
 {
-    public string Value { get; }
+    public string Value { get; private set; }
+
+    // EF Core constructor
+#pragma warning disable CS8618 // Non-nullable field must contain a non-null value
+    private EmailAddress() { }
+#pragma warning restore CS8618
 
     private EmailAddress(string value)
     {

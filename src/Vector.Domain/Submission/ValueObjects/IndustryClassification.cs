@@ -7,9 +7,14 @@ namespace Vector.Domain.Submission.ValueObjects;
 /// </summary>
 public sealed class IndustryClassification : ValueObject
 {
-    public string NaicsCode { get; }
-    public string? SicCode { get; }
-    public string Description { get; }
+    public string NaicsCode { get; private set; }
+    public string? SicCode { get; private set; }
+    public string Description { get; private set; }
+
+    // EF Core constructor
+#pragma warning disable CS8618 // Non-nullable field must contain a non-null value
+    private IndustryClassification() { }
+#pragma warning restore CS8618
 
     private IndustryClassification(string naicsCode, string? sicCode, string description)
     {

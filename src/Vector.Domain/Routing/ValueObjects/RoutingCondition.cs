@@ -8,10 +8,15 @@ namespace Vector.Domain.Routing.ValueObjects;
 /// </summary>
 public class RoutingCondition : ValueObject
 {
-    public RuleField Field { get; }
-    public RuleOperator Operator { get; }
-    public string Value { get; }
-    public string? SecondaryValue { get; }
+    public RuleField Field { get; private set; }
+    public RuleOperator Operator { get; private set; }
+    public string Value { get; private set; }
+    public string? SecondaryValue { get; private set; }
+
+    // EF Core constructor
+#pragma warning disable CS8618 // Non-nullable field must contain a non-null value
+    private RoutingCondition() { }
+#pragma warning restore CS8618
 
     private RoutingCondition(
         RuleField field,

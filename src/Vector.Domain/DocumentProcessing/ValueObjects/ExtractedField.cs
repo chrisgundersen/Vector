@@ -7,11 +7,16 @@ namespace Vector.Domain.DocumentProcessing.ValueObjects;
 /// </summary>
 public sealed class ExtractedField : ValueObject
 {
-    public string FieldName { get; }
-    public string? Value { get; }
-    public ExtractionConfidence Confidence { get; }
-    public string? BoundingBox { get; }
-    public int? PageNumber { get; }
+    public string FieldName { get; private set; }
+    public string? Value { get; private set; }
+    public ExtractionConfidence Confidence { get; private set; }
+    public string? BoundingBox { get; private set; }
+    public int? PageNumber { get; private set; }
+
+    // EF Core constructor
+#pragma warning disable CS8618 // Non-nullable field must contain a non-null value
+    private ExtractedField() { }
+#pragma warning restore CS8618
 
     private ExtractedField(
         string fieldName,

@@ -7,8 +7,13 @@ namespace Vector.Domain.Submission.ValueObjects;
 /// </summary>
 public sealed class Money : ValueObject
 {
-    public decimal Amount { get; }
-    public string Currency { get; }
+    public decimal Amount { get; private set; }
+    public string Currency { get; private set; }
+
+    // EF Core constructor
+#pragma warning disable CS8618 // Non-nullable field must contain a non-null value
+    private Money() { }
+#pragma warning restore CS8618
 
     private Money(decimal amount, string currency)
     {

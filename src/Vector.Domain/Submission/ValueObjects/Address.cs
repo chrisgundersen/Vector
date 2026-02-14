@@ -7,12 +7,17 @@ namespace Vector.Domain.Submission.ValueObjects;
 /// </summary>
 public sealed class Address : ValueObject
 {
-    public string Street1 { get; }
-    public string? Street2 { get; }
-    public string City { get; }
-    public string State { get; }
-    public string PostalCode { get; }
-    public string Country { get; }
+    public string Street1 { get; private set; }
+    public string? Street2 { get; private set; }
+    public string City { get; private set; }
+    public string State { get; private set; }
+    public string PostalCode { get; private set; }
+    public string Country { get; private set; }
+
+    // EF Core constructor
+#pragma warning disable CS8618 // Non-nullable field must contain a non-null value
+    private Address() { }
+#pragma warning restore CS8618
 
     private Address(
         string street1,
