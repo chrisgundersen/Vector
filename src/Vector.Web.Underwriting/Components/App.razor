@@ -7,14 +7,24 @@
     <base href="/" />
     <link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="app.css" />
-    <link rel="stylesheet" href="Vector.Web.Underwriting.styles.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
-    <HeadOutlet />
+    <HeadOutlet @rendermode="InteractiveServer" />
 </head>
 
 <body>
-    <Routes />
+    <ErrorBoundary>
+        <ChildContent>
+            <Routes @rendermode="InteractiveServer" />
+        </ChildContent>
+        <ErrorContent Context="ex">
+            <div style="color: red; padding: 20px; background: #ffcccc;">
+                <h2>Error Rendering Page</h2>
+                <p><strong>@ex.GetType().Name:</strong> @ex.Message</p>
+                <pre style="font-size: 12px; overflow: auto;">@ex.StackTrace</pre>
+            </div>
+        </ErrorContent>
+    </ErrorBoundary>
     <script src="_framework/blazor.web.js"></script>
 </body>
 

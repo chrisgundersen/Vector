@@ -1,0 +1,256 @@
+@page "/producer/submissions"
+@using MediatR
+@using Vector.Application.Submissions.Queries
+@using Vector.Application.Submissions.DTOs
+@using Vector.Application.Common.Interfaces
+@using Vector.Domain.Submission.Enums
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Producer")]
+@inject IMediator Mediator
+@inject ICurrentUserService CurrentUserService
+
+<PageTitle>My Submissions - Vector</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">My Submissions</h1>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Status</label>
+                    <select class="form-select" @bind="_selectedStatus" @bind:after="LoadDataAsync">
+                        <option value="">All Statuses</option>
+                        <option value="Draft">Draft</option>
+                        <option value="Received">Received</option>
+                        <option value="InReview">In Review</option>
+                        <option value="PendingInformation">Pending Information</option>
+                        <option value="Quoted">Quoted</option>
+                        <option value="Bound">Bound</option>
+                        <option value="Declined">Declined</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Search</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" placeholder="Search by insured name or submission #..."
+                               @bind="_searchTerm" @bind:event="oninput" @onkeyup="HandleSearchKeyUp" />
+                        <button class="btn btn-primary" type="button" @onclick="LoadDataAsync">
+                            <i class="bi bi-search"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (_isLoading)
+    {
+        <div class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (_error is not null)
+    {
+        <div class="alert alert-danger">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            @_error
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-body p-0">
+                @if (_submissions.Count == 0)
+                {
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-inbox display-4 mb-3 d-block"></i>
+                        <p>No submissions found matching your criteria.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Submission #</th>
+                                    <th>Insured Name</th>
+                                    <th>Status</th>
+                                    <th>Received</th>
+                                    <th>Effective Date</th>
+                                    <th>Assigned To</th>
+                                    <th>Scores</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var submission in _submissions)
+                                {
+                                    <tr class="@(submission.Status == "PendingInformation" ? "table-warning" : "")">
+                                        <td>
+                                            <a href="/producer/submissions/@submission.Id" class="text-decoration-none fw-semibold">
+                                                @submission.SubmissionNumber
+                                            </a>
+                                        </td>
+                                        <td>@submission.InsuredName</td>
+                                        <td>
+                                            <span class="badge @GetStatusBadgeClass(submission.Status)">
+                                                @FormatStatus(submission.Status)
+                                            </span>
+                                        </td>
+                                        <td>@submission.ReceivedAt.ToString("MMM dd, yyyy")</td>
+                                        <td>@(submission.EffectiveDate?.ToString("MMM dd, yyyy") ?? "-")</td>
+                                        <td>@(submission.AssignedUnderwriterName ?? "Unassigned")</td>
+                                        <td>
+                                            @if (submission.AppetiteScore.HasValue)
+                                            {
+                                                <span class="badge @GetScoreBadgeClass(submission.AppetiteScore.Value)" title="Appetite Score">
+                                                    @submission.AppetiteScore
+                                                </span>
+                                            }
+                                            @if (submission.DataQualityScore.HasValue)
+                                            {
+                                                <span class="badge @GetScoreBadgeClass(submission.DataQualityScore.Value) ms-1" title="Data Quality Score">
+                                                    @submission.DataQualityScore
+                                                </span>
+                                            }
+                                        </td>
+                                        <td class="text-end">
+                                            <a href="/producer/submissions/@submission.Id" class="btn btn-sm btn-outline-primary">
+                                                View
+                                            </a>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+            @if (_totalPages > 1)
+            {
+                <div class="card-footer">
+                    <nav>
+                        <ul class="pagination mb-0 justify-content-center">
+                            <li class="page-item @(_currentPage <= 1 ? "disabled" : "")">
+                                <button class="page-link" @onclick="() => GoToPage(_currentPage - 1)">Previous</button>
+                            </li>
+                            @for (var i = 1; i <= _totalPages; i++)
+                            {
+                                var pageNum = i;
+                                <li class="page-item @(_currentPage == pageNum ? "active" : "")">
+                                    <button class="page-link" @onclick="() => GoToPage(pageNum)">@pageNum</button>
+                                </li>
+                            }
+                            <li class="page-item @(_currentPage >= _totalPages ? "disabled" : "")">
+                                <button class="page-link" @onclick="() => GoToPage(_currentPage + 1)">Next</button>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private bool _isLoading = true;
+    private string? _error;
+    private List<SubmissionSummaryDto> _submissions = [];
+    private string _selectedStatus = "";
+    private string _searchTerm = "";
+    private int _currentPage = 1;
+    private int _pageSize = 20;
+    private int _totalPages = 1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        try
+        {
+            _isLoading = true;
+            _error = null;
+
+            Guid? producerId = null;
+            if (Guid.TryParse(CurrentUserService.UserId, out var id))
+            {
+                producerId = id;
+            }
+
+            SubmissionStatus? status = null;
+            if (!string.IsNullOrEmpty(_selectedStatus) && Enum.TryParse<SubmissionStatus>(_selectedStatus, out var s))
+            {
+                status = s;
+            }
+
+            var result = await Mediator.Send(new GetProducerSubmissionsQuery(
+                producerId,
+                status,
+                string.IsNullOrWhiteSpace(_searchTerm) ? null : _searchTerm,
+                _currentPage,
+                _pageSize));
+
+            _submissions = result.Submissions.ToList();
+            _totalPages = result.TotalPages;
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to load submissions: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task GoToPage(int page)
+    {
+        _currentPage = page;
+        await LoadDataAsync();
+    }
+
+    private async Task HandleSearchKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await LoadDataAsync();
+        }
+    }
+
+    private static string GetStatusBadgeClass(string status) => status switch
+    {
+        "Draft" => "bg-secondary",
+        "Received" => "bg-info",
+        "InReview" => "bg-primary",
+        "PendingInformation" => "bg-warning text-dark",
+        "Quoted" => "bg-success",
+        "Bound" => "bg-success",
+        "Declined" => "bg-danger",
+        "Withdrawn" => "bg-secondary",
+        _ => "bg-secondary"
+    };
+
+    private static string FormatStatus(string status) => status switch
+    {
+        "InReview" => "In Review",
+        "PendingInformation" => "Pending Info",
+        _ => status
+    };
+
+    private static string GetScoreBadgeClass(int score) => score switch
+    {
+        >= 80 => "bg-success",
+        >= 60 => "bg-warning text-dark",
+        _ => "bg-danger"
+    };
+}

@@ -80,7 +80,7 @@ public class TestServerFixture : IAsyncLifetime
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"run --no-build --launch-profile Local --urls http://localhost:{port}",
+            Arguments = $"run --launch-profile Local --urls http://localhost:{port}",
             WorkingDirectory = projectPath,
             UseShellExecute = false,
             RedirectStandardOutput = true,

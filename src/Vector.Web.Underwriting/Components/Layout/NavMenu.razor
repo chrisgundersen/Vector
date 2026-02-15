@@ -1,6 +1,23 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+@using Microsoft.AspNetCore.Components.Authorization
+@using Vector.Web.Underwriting.Services
+@inject AuthenticationStateProvider AuthStateProvider
+
+<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
-        <a class="navbar-brand" href="">Vector Underwriting</a>
+        <a class="navbar-brand" href="">
+            @if (_isProducer)
+            {
+                <span>Vector Producer Portal</span>
+            }
+            else if (_isAdmin && !_isUnderwriter)
+            {
+                <span>Vector Admin</span>
+            }
+            else
+            {
+                <span>Vector Underwriting</span>
+            }
+        </a>
     </div>
 </div>
 
@@ -8,29 +25,111 @@
 
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
     <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-speedometer2" aria-hidden="true"></span> Dashboard
-            </NavLink>
+        @if (_isUnderwriter)
+        {
+            <div class="nav-item px-3 pt-2">
+                <small class="text-muted text-uppercase fw-bold">Underwriting</small>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                    <span class="bi bi-speedometer2" aria-hidden="true"></span> Dashboard
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="queue">
+                    <span class="bi bi-inbox-fill" aria-hidden="true"></span> Submission Queue
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="submissions">
+                    <span class="bi bi-folder2-open" aria-hidden="true"></span> All Submissions
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="my-work">
+                    <span class="bi bi-person-workspace" aria-hidden="true"></span> My Work
+                </NavLink>
+            </div>
+        }
+
+        @if (_isProducer)
+        {
+            <div class="nav-item px-3 pt-2">
+                <small class="text-muted text-uppercase fw-bold">Producer Portal</small>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="producer" Match="NavLinkMatch.All">
+                    <span class="bi bi-house-door" aria-hidden="true"></span> Dashboard
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="producer/submissions">
+                    <span class="bi bi-file-earmark-text" aria-hidden="true"></span> My Submissions
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="producer/corrections">
+                    <span class="bi bi-pencil-square" aria-hidden="true"></span> Data Corrections
+                </NavLink>
+            </div>
+        }
+
+        @if (_isAdmin)
+        {
+            <div class="nav-item px-3 pt-3">
+                <small class="text-muted text-uppercase fw-bold">Administration</small>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="admin/guidelines">
+                    <span class="bi bi-card-checklist" aria-hidden="true"></span> Guidelines
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="admin/routing">
+                    <span class="bi bi-signpost-split" aria-hidden="true"></span> Routing Rules
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="admin/pairings">
+                    <span class="bi bi-people" aria-hidden="true"></span> Pairings
+                </NavLink>
+            </div>
+        }
+
+        <div class="nav-item px-3 pt-3">
+            <hr class="border-secondary" />
         </div>
 
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="queue">
-                <span class="bi bi-inbox-fill" aria-hidden="true"></span> Submission Queue
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="submissions">
-                <span class="bi bi-folder2-open" aria-hidden="true"></span> All Submissions
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="my-work">
-                <span class="bi bi-person-workspace" aria-hidden="true"></span> My Work
+            <NavLink class="nav-link" href="login">
+                <span class="bi bi-box-arrow-in-right" aria-hidden="true"></span> Switch User
             </NavLink>
         </div>
     </nav>
 </div>
 
+@code {
+    private bool _isUnderwriter;
+    private bool _isProducer;
+    private bool _isAdmin;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        _isUnderwriter = user.IsInRole("Underwriter");
+        _isProducer = user.IsInRole("Producer");
+        _isAdmin = user.IsInRole("Admin");
+    }
+}

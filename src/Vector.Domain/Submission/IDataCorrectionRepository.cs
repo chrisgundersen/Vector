@@ -12,6 +12,7 @@ public interface IDataCorrectionRepository
     Task<IReadOnlyList<DataCorrectionRequest>> GetBySubmissionIdAsync(Guid submissionId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<DataCorrectionRequest>> GetByStatusAsync(DataCorrectionStatus status, int limit, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<DataCorrectionRequest>> GetPendingBySubmissionIdAsync(Guid submissionId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<(DataCorrectionRequest Correction, string SubmissionNumber, string InsuredName)>> GetByProducerIdAsync(Guid producerId, DataCorrectionStatus? status = null, CancellationToken cancellationToken = default);
     Task AddAsync(DataCorrectionRequest request, CancellationToken cancellationToken = default);
     Task UpdateAsync(DataCorrectionRequest request, CancellationToken cancellationToken = default);
 }

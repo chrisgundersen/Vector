@@ -1,0 +1,273 @@
+@page "/producer"
+@using MediatR
+@using Vector.Application.Submissions.Queries
+@using Vector.Application.Submissions.DTOs
+@using Vector.Application.Common.Interfaces
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Producer")]
+@inject IMediator Mediator
+@inject ICurrentUserService CurrentUserService
+@inject NavigationManager Navigation
+
+<PageTitle>Producer Dashboard - Vector</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">Welcome, @CurrentUserService.UserName</h1>
+            <p class="text-muted mb-0">View and track your insurance submissions</p>
+        </div>
+    </div>
+
+    @if (_isLoading)
+    {
+        <div class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (_error is not null)
+    {
+        <div class="alert alert-danger">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            @_error
+        </div>
+    }
+    else
+    {
+        <!-- Status Summary Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card bg-primary text-white h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h6 class="card-subtitle mb-2 opacity-75">Total Submissions</h6>
+                                <h2 class="card-title mb-0">@_totalCount</h2>
+                            </div>
+                            <div class="display-6 opacity-50">
+                                <i class="bi bi-folder2-open"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-warning text-dark h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h6 class="card-subtitle mb-2 opacity-75">In Review</h6>
+                                <h2 class="card-title mb-0">@_inReviewCount</h2>
+                            </div>
+                            <div class="display-6 opacity-50">
+                                <i class="bi bi-hourglass-split"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-info text-white h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h6 class="card-subtitle mb-2 opacity-75">Quoted</h6>
+                                <h2 class="card-title mb-0">@_quotedCount</h2>
+                            </div>
+                            <div class="display-6 opacity-50">
+                                <i class="bi bi-currency-dollar"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-danger text-white h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h6 class="card-subtitle mb-2 opacity-75">Needs Attention</h6>
+                                <h2 class="card-title mb-0">@_pendingInfoCount</h2>
+                            </div>
+                            <div class="display-6 opacity-50">
+                                <i class="bi bi-exclamation-circle"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Submissions -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Recent Submissions</h5>
+                <a href="/producer/submissions" class="btn btn-sm btn-outline-primary">View All</a>
+            </div>
+            <div class="card-body p-0">
+                @if (_submissions.Count == 0)
+                {
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-inbox display-4 mb-3 d-block"></i>
+                        <p>No submissions found.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Submission #</th>
+                                    <th>Insured Name</th>
+                                    <th>Status</th>
+                                    <th>Received</th>
+                                    <th>Assigned To</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var submission in _submissions.Take(10))
+                                {
+                                    <tr>
+                                        <td>
+                                            <a href="/producer/submissions/@submission.Id" class="text-decoration-none">
+                                                @submission.SubmissionNumber
+                                            </a>
+                                        </td>
+                                        <td>@submission.InsuredName</td>
+                                        <td>
+                                            <span class="badge @GetStatusBadgeClass(submission.Status)">
+                                                @submission.Status
+                                            </span>
+                                        </td>
+                                        <td>@submission.ReceivedAt.ToString("MMM dd, yyyy")</td>
+                                        <td>@(submission.AssignedUnderwriterName ?? "Unassigned")</td>
+                                        <td class="text-end">
+                                            <a href="/producer/submissions/@submission.Id" class="btn btn-sm btn-outline-secondary">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Pending Information Requests -->
+        @if (_pendingInfoSubmissions.Count > 0)
+        {
+            <div class="card border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Action Required - Information Requests
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Submission #</th>
+                                    <th>Insured Name</th>
+                                    <th>Underwriter</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var submission in _pendingInfoSubmissions)
+                                {
+                                    <tr>
+                                        <td>@submission.SubmissionNumber</td>
+                                        <td>@submission.InsuredName</td>
+                                        <td>@submission.AssignedUnderwriterName</td>
+                                        <td class="text-end">
+                                            <a href="/producer/submissions/@submission.Id" class="btn btn-sm btn-warning">
+                                                Respond
+                                            </a>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private bool _isLoading = true;
+    private string? _error;
+    private List<SubmissionSummaryDto> _submissions = [];
+    private List<SubmissionSummaryDto> _pendingInfoSubmissions = [];
+    private int _totalCount;
+    private int _inReviewCount;
+    private int _quotedCount;
+    private int _pendingInfoCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        try
+        {
+            _isLoading = true;
+
+            // Get producer ID from current user
+            Guid? producerId = null;
+            if (Guid.TryParse(CurrentUserService.UserId, out var id))
+            {
+                producerId = id;
+            }
+
+            var result = await Mediator.Send(new GetProducerSubmissionsQuery(
+                producerId,
+                null,
+                null,
+                1,
+                100));
+
+            _submissions = result.Submissions.ToList();
+            _totalCount = result.TotalCount;
+
+            // Calculate status counts
+            _inReviewCount = _submissions.Count(s => s.Status == "InReview" || s.Status == "Received");
+            _quotedCount = _submissions.Count(s => s.Status == "Quoted");
+            _pendingInfoCount = _submissions.Count(s => s.Status == "PendingInformation");
+
+            _pendingInfoSubmissions = _submissions.Where(s => s.Status == "PendingInformation").ToList();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to load submissions: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private static string GetStatusBadgeClass(string status) => status switch
+    {
+        "Draft" => "bg-secondary",
+        "Received" => "bg-info",
+        "InReview" => "bg-primary",
+        "PendingInformation" => "bg-warning text-dark",
+        "Quoted" => "bg-success",
+        "Bound" => "bg-success",
+        "Declined" => "bg-danger",
+        "Withdrawn" => "bg-secondary",
+        _ => "bg-secondary"
+    };
+}

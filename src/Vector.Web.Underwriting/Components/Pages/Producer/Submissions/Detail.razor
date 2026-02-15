@@ -1,0 +1,648 @@
+@page "/producer/submissions/{Id:guid}"
+@using MediatR
+@using Vector.Application.Submissions.DTOs
+@using Vector.Application.Submissions.Queries
+@using Vector.Application.Common.Interfaces
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Producer")]
+@inject IMediator Mediator
+@inject ICurrentUserService CurrentUserService
+@inject NavigationManager Navigation
+
+<PageTitle>@(_submission?.SubmissionNumber ?? "Submission") - Vector</PageTitle>
+
+@if (_isLoading)
+{
+    <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (_error is not null)
+{
+    <div class="alert alert-danger">
+        <i class="bi bi-exclamation-triangle me-2"></i>
+        @_error
+    </div>
+}
+else if (_submission is null)
+{
+    <div class="alert alert-warning">
+        <h4>Submission Not Found</h4>
+        <p>The requested submission could not be found or you don't have permission to view it.</p>
+        <a href="/producer/submissions" class="btn btn-primary">Back to My Submissions</a>
+    </div>
+}
+else
+{
+    <div class="container-fluid">
+        <!-- Breadcrumb -->
+        <nav aria-label="breadcrumb" class="mb-3">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/producer">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="/producer/submissions">My Submissions</a></li>
+                <li class="breadcrumb-item active" aria-current="page">@_submission.SubmissionNumber</li>
+            </ol>
+        </nav>
+
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-start mb-4">
+            <div>
+                <h1 class="mb-1">@_submission.SubmissionNumber</h1>
+                <h4 class="text-muted mb-2">@_submission.Insured.Name</h4>
+                <div class="d-flex gap-2 align-items-center">
+                    <span class="badge @GetStatusBadgeClass(_submission.Status) fs-6">@FormatStatus(_submission.Status)</span>
+                    @if (_submission.Status == "PendingInformation")
+                    {
+                        <span class="badge bg-warning text-dark">
+                            <i class="bi bi-exclamation-triangle me-1"></i>Action Required
+                        </span>
+                    }
+                </div>
+            </div>
+            <div class="text-end">
+                <small class="text-muted d-block">Received: @_submission.ReceivedAt.ToString("MMM dd, yyyy")</small>
+                @if (_submission.AssignedUnderwriterName is not null)
+                {
+                    <small class="text-muted d-block">Underwriter: @_submission.AssignedUnderwriterName</small>
+                }
+            </div>
+        </div>
+
+        <!-- Alert for Pending Information -->
+        @if (_submission.Status == "PendingInformation")
+        {
+            <div class="alert alert-warning mb-4">
+                <h5 class="alert-heading">
+                    <i class="bi bi-exclamation-triangle me-2"></i>Additional Information Requested
+                </h5>
+                <p class="mb-2">The underwriter has requested additional information for this submission.</p>
+                <a href="/producer/corrections" class="btn btn-warning">
+                    <i class="bi bi-reply me-1"></i>View Requests
+                </a>
+            </div>
+        }
+
+        <!-- Score Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <h6 class="card-subtitle mb-2 text-muted">Appetite Score</h6>
+                        <h2 class="@GetScoreTextClass(_submission.AppetiteScore)">
+                            @(_submission.AppetiteScore?.ToString() ?? "--")
+                        </h2>
+                        <small class="text-muted">How well this fits our appetite</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <h6 class="card-subtitle mb-2 text-muted">Winnability</h6>
+                        <h2 class="@GetScoreTextClass(_submission.WinnabilityScore)">
+                            @(_submission.WinnabilityScore?.ToString() ?? "--")
+                        </h2>
+                        <small class="text-muted">Likelihood of winning</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <h6 class="card-subtitle mb-2 text-muted">Data Quality</h6>
+                        <h2 class="@GetScoreTextClass(_submission.DataQualityScore)">
+                            @(_submission.DataQualityScore?.ToString() ?? "--")
+                        </h2>
+                        <small class="text-muted">Completeness of data</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <h6 class="card-subtitle mb-2 text-muted">Assigned Underwriter</h6>
+                        <h5 class="mb-1">@(_submission.AssignedUnderwriterName ?? "Unassigned")</h5>
+                        @if (_submission.AssignedAt.HasValue)
+                        {
+                            <small class="text-muted">
+                                Since @_submission.AssignedAt.Value.ToString("MMM dd, yyyy")
+                            </small>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <ul class="nav nav-tabs mb-4" role="tablist">
+            <li class="nav-item">
+                <button class="nav-link @(_activeTab == "insured" ? "active" : "")" @onclick="@(() => SetActiveTab("insured"))">
+                    Insured
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link @(_activeTab == "coverages" ? "active" : "")" @onclick="@(() => SetActiveTab("coverages"))">
+                    Coverages (@_submission.Coverages.Count)
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link @(_activeTab == "locations" ? "active" : "")" @onclick="@(() => SetActiveTab("locations"))">
+                    Locations (@_submission.Locations.Count)
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link @(_activeTab == "losses" ? "active" : "")" @onclick="@(() => SetActiveTab("losses"))">
+                    Loss History (@_submission.Losses.Count)
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link @(_activeTab == "corrections" ? "active" : "")" @onclick="@(() => SetActiveTab("corrections"))">
+                    Corrections (@_corrections.Count)
+                    @if (_corrections.Any(c => c.Status == "Pending"))
+                    {
+                        <span class="badge bg-warning text-dark ms-1">@_corrections.Count(c => c.Status == "Pending")</span>
+                    }
+                </button>
+            </li>
+        </ul>
+
+        <!-- Tab Content -->
+        <div class="tab-content">
+            <!-- Insured Tab -->
+            @if (_activeTab == "insured")
+            {
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Insured Information</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <dl>
+                                    <dt>Named Insured</dt>
+                                    <dd>@_submission.Insured.Name</dd>
+
+                                    @if (_submission.Insured.DbaName is not null)
+                                    {
+                                        <dt>DBA</dt>
+                                        <dd>@_submission.Insured.DbaName</dd>
+                                    }
+
+                                    @if (_submission.Insured.FeinNumber is not null)
+                                    {
+                                        <dt>FEIN</dt>
+                                        <dd>@_submission.Insured.FeinNumber</dd>
+                                    }
+
+                                    @if (_submission.Insured.Industry is not null)
+                                    {
+                                        <dt>Industry</dt>
+                                        <dd>@_submission.Insured.Industry</dd>
+                                    }
+
+                                    @if (_submission.Insured.Website is not null)
+                                    {
+                                        <dt>Website</dt>
+                                        <dd><a href="@_submission.Insured.Website" target="_blank">@_submission.Insured.Website</a></dd>
+                                    }
+                                </dl>
+                            </div>
+                            <div class="col-md-6">
+                                <dl>
+                                    @if (_submission.Insured.MailingAddress is not null)
+                                    {
+                                        <dt>Mailing Address</dt>
+                                        <dd>
+                                            @_submission.Insured.MailingAddress.Street1<br />
+                                            @if (_submission.Insured.MailingAddress.Street2 is not null)
+                                            {
+                                                @_submission.Insured.MailingAddress.Street2<br />
+                                            }
+                                            @_submission.Insured.MailingAddress.City, @_submission.Insured.MailingAddress.State @_submission.Insured.MailingAddress.PostalCode
+                                        </dd>
+                                    }
+
+                                    @if (_submission.Insured.YearsInBusiness.HasValue)
+                                    {
+                                        <dt>Years in Business</dt>
+                                        <dd>@_submission.Insured.YearsInBusiness</dd>
+                                    }
+
+                                    @if (_submission.Insured.EmployeeCount.HasValue)
+                                    {
+                                        <dt>Employee Count</dt>
+                                        <dd>@_submission.Insured.EmployeeCount.Value.ToString("N0")</dd>
+                                    }
+
+                                    @if (_submission.Insured.AnnualRevenue.HasValue)
+                                    {
+                                        <dt>Annual Revenue</dt>
+                                        <dd>@_submission.Insured.AnnualRevenue.Value.ToString("C0")</dd>
+                                    }
+                                </dl>
+                            </div>
+                        </div>
+
+                        <!-- Policy Dates -->
+                        <hr />
+                        <div class="row">
+                            <div class="col-md-4">
+                                <dl>
+                                    <dt>Effective Date</dt>
+                                    <dd>@(_submission.EffectiveDate?.ToString("MMM dd, yyyy") ?? "Not specified")</dd>
+                                </dl>
+                            </div>
+                            <div class="col-md-4">
+                                <dl>
+                                    <dt>Expiration Date</dt>
+                                    <dd>@(_submission.ExpirationDate?.ToString("MMM dd, yyyy") ?? "Not specified")</dd>
+                                </dl>
+                            </div>
+                            @if (_submission.ProducerName is not null)
+                            {
+                                <div class="col-md-4">
+                                    <dl>
+                                        <dt>Producer</dt>
+                                        <dd>@_submission.ProducerName</dd>
+                                    </dl>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <!-- Coverages Tab -->
+            @if (_activeTab == "coverages")
+            {
+                @if (_submission.Coverages.Count == 0)
+                {
+                    <div class="alert alert-info">No coverages have been added to this submission.</div>
+                }
+                else
+                {
+                    <div class="card">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Coverage Type</th>
+                                        <th>Requested Limit</th>
+                                        <th>Requested Deductible</th>
+                                        <th>Currently Insured</th>
+                                        <th>Current Carrier</th>
+                                        <th>Current Premium</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var coverage in _submission.Coverages)
+                                    {
+                                        <tr>
+                                            <td><strong>@coverage.Type</strong></td>
+                                            <td>@FormatCurrency(coverage.RequestedLimit)</td>
+                                            <td>@FormatCurrency(coverage.RequestedDeductible)</td>
+                                            <td>
+                                                @if (coverage.IsCurrentlyInsured)
+                                                {
+                                                    <span class="badge bg-success">Yes</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-secondary">No</span>
+                                                }
+                                            </td>
+                                            <td>@(coverage.CurrentCarrier ?? "-")</td>
+                                            <td>@FormatCurrency(coverage.CurrentPremium)</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                }
+            }
+
+            <!-- Locations Tab -->
+            @if (_activeTab == "locations")
+            {
+                @if (_submission.Locations.Count == 0)
+                {
+                    <div class="alert alert-info">No locations have been added to this submission.</div>
+                }
+                else
+                {
+                    <div class="mb-3">
+                        <span class="badge bg-primary fs-6">Total Insured Value: @_submission.Locations.Sum(l => l.TotalInsuredValue).ToString("C0")</span>
+                    </div>
+
+                    <div class="row">
+                        @foreach (var location in _submission.Locations.OrderBy(l => l.LocationNumber))
+                        {
+                            <div class="col-md-6 mb-3">
+                                <div class="card h-100">
+                                    <div class="card-header d-flex justify-content-between align-items-center">
+                                        <strong>Location #@location.LocationNumber</strong>
+                                        <span class="badge bg-secondary">@location.TotalInsuredValue.ToString("C0")</span>
+                                    </div>
+                                    <div class="card-body">
+                                        <p class="mb-2">
+                                            @location.Address.Street1<br />
+                                            @if (location.Address.Street2 is not null)
+                                            {
+                                                @location.Address.Street2<br />
+                                            }
+                                            @location.Address.City, @location.Address.State @location.Address.PostalCode
+                                        </p>
+
+                                        @if (location.BuildingDescription is not null)
+                                        {
+                                            <p class="text-muted small mb-2">@location.BuildingDescription</p>
+                                        }
+
+                                        <div class="row small">
+                                            @if (location.ConstructionType is not null)
+                                            {
+                                                <div class="col-6 mb-1">
+                                                    <strong>Construction:</strong> @location.ConstructionType
+                                                </div>
+                                            }
+                                            @if (location.YearBuilt.HasValue)
+                                            {
+                                                <div class="col-6 mb-1">
+                                                    <strong>Year Built:</strong> @location.YearBuilt
+                                                </div>
+                                            }
+                                            @if (location.SquareFootage.HasValue)
+                                            {
+                                                <div class="col-6 mb-1">
+                                                    <strong>Sq. Ft.:</strong> @location.SquareFootage.Value.ToString("N0")
+                                                </div>
+                                            }
+                                            @if (location.OccupancyType is not null)
+                                            {
+                                                <div class="col-6 mb-1">
+                                                    <strong>Occupancy:</strong> @location.OccupancyType
+                                                </div>
+                                            }
+                                        </div>
+
+                                        <hr />
+
+                                        <div class="row small">
+                                            <div class="col-6">
+                                                <strong>Building:</strong> @FormatCurrency(location.BuildingValue)
+                                            </div>
+                                            <div class="col-6">
+                                                <strong>Contents:</strong> @FormatCurrency(location.ContentsValue)
+                                            </div>
+                                            <div class="col-12 mt-1">
+                                                <strong>Business Income:</strong> @FormatCurrency(location.BusinessIncomeValue)
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            }
+
+            <!-- Loss History Tab -->
+            @if (_activeTab == "losses")
+            {
+                @if (_submission.Losses.Count == 0)
+                {
+                    <div class="alert alert-success">
+                        <h5 class="alert-heading">
+                            <i class="bi bi-check-circle me-2"></i>Clean Loss History
+                        </h5>
+                        <p class="mb-0">This insured has no reported losses in the past 5 years.</p>
+                    </div>
+                }
+                else
+                {
+                    <!-- Loss Summary -->
+                    <div class="card mb-3">
+                        <div class="card-body bg-light">
+                            <div class="row text-center">
+                                <div class="col-md-4">
+                                    <h6 class="text-muted">Total Claims</h6>
+                                    <h3>@_submission.Losses.Count</h3>
+                                </div>
+                                <div class="col-md-4">
+                                    <h6 class="text-muted">Total Incurred</h6>
+                                    <h3 class="text-danger">@FormatCurrency(_submission.TotalIncurredLosses)</h3>
+                                </div>
+                                <div class="col-md-4">
+                                    <h6 class="text-muted">Open Claims</h6>
+                                    <h3>@_submission.Losses.Count(l => l.Status == "Open")</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Date of Loss</th>
+                                        <th>Claim #</th>
+                                        <th>Coverage</th>
+                                        <th>Description</th>
+                                        <th>Paid</th>
+                                        <th>Reserved</th>
+                                        <th>Incurred</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var loss in _submission.Losses.OrderByDescending(l => l.DateOfLoss))
+                                    {
+                                        <tr>
+                                            <td>@loss.DateOfLoss.ToString("MM/dd/yyyy")</td>
+                                            <td>@(loss.ClaimNumber ?? "-")</td>
+                                            <td>@(loss.CoverageType ?? "-")</td>
+                                            <td>@loss.Description</td>
+                                            <td>@FormatCurrency(loss.PaidAmount)</td>
+                                            <td>@FormatCurrency(loss.ReservedAmount)</td>
+                                            <td class="fw-bold">@FormatCurrency(loss.IncurredAmount)</td>
+                                            <td>
+                                                <span class="badge @(loss.Status == "Open" ? "bg-warning text-dark" : "bg-secondary")">
+                                                    @loss.Status
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                }
+            }
+
+            <!-- Corrections Tab -->
+            @if (_activeTab == "corrections")
+            {
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">Data Correction Requests</h5>
+                    <a href="/producer/corrections" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-pencil-square me-1"></i>View All Corrections
+                    </a>
+                </div>
+
+                @if (_corrections.Count == 0)
+                {
+                    <div class="alert alert-info">
+                        <p class="mb-0">No data corrections have been requested for this submission.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="card">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Type</th>
+                                        <th>Field</th>
+                                        <th>Current Value</th>
+                                        <th>Proposed Value</th>
+                                        <th>Status</th>
+                                        <th>Requested</th>
+                                        <th>Notes</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var correction in _corrections.OrderByDescending(c => c.RequestedAt))
+                                    {
+                                        <tr class="@(correction.Status == "Pending" ? "table-warning" : "")">
+                                            <td>@FormatEnumName(correction.Type)</td>
+                                            <td><strong>@correction.FieldName</strong></td>
+                                            <td><code>@(correction.CurrentValue ?? "-")</code></td>
+                                            <td><code>@correction.ProposedValue</code></td>
+                                            <td>
+                                                <span class="badge @GetCorrectionStatusClass(correction.Status)">
+                                                    @correction.Status
+                                                </span>
+                                            </td>
+                                            <td>@correction.RequestedAt.ToString("MM/dd/yyyy")</td>
+                                            <td>
+                                                @if (!string.IsNullOrEmpty(correction.ReviewNotes))
+                                                {
+                                                    <small class="text-muted">@correction.ReviewNotes</small>
+                                                }
+                                                else
+                                                {
+                                                    <span>-</span>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+
+        <!-- Back Button -->
+        <div class="mt-4">
+            <a href="/producer/submissions" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Back to My Submissions
+            </a>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private bool _isLoading = true;
+    private string? _error;
+    private SubmissionDto? _submission;
+    private IReadOnlyList<DataCorrectionDto> _corrections = [];
+    private string _activeTab = "insured";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        try
+        {
+            _isLoading = true;
+            _error = null;
+
+            _submission = await Mediator.Send(new GetSubmissionQuery(Id));
+
+            if (_submission is not null)
+            {
+                _corrections = await Mediator.Send(new GetDataCorrectionsQuery(Id));
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to load submission: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void SetActiveTab(string tab)
+    {
+        _activeTab = tab;
+    }
+
+    private static string FormatCurrency(decimal? value) =>
+        value.HasValue ? value.Value.ToString("C0") : "-";
+
+    private static string FormatStatus(string status) => status switch
+    {
+        "InReview" => "In Review",
+        "PendingInformation" => "Pending Info",
+        _ => status
+    };
+
+    private static string FormatEnumName(string name) =>
+        string.Concat(name.Select((c, i) => i > 0 && char.IsUpper(c) ? " " + c : c.ToString()));
+
+    private static string GetStatusBadgeClass(string status) => status switch
+    {
+        "Draft" => "bg-secondary",
+        "Received" => "bg-info",
+        "InReview" => "bg-primary",
+        "PendingInformation" => "bg-warning text-dark",
+        "Quoted" => "bg-success",
+        "Bound" => "bg-success",
+        "Declined" => "bg-danger",
+        "Withdrawn" => "bg-secondary",
+        _ => "bg-secondary"
+    };
+
+    private static string GetScoreTextClass(int? score) => score switch
+    {
+        >= 80 => "text-success",
+        >= 60 => "text-info",
+        >= 40 => "text-warning",
+        _ => "text-danger"
+    };
+
+    private static string GetCorrectionStatusClass(string status) => status switch
+    {
+        "Pending" => "bg-warning text-dark",
+        "UnderReview" => "bg-info",
+        "Approved" => "bg-success",
+        "Rejected" => "bg-danger",
+        "Applied" => "bg-primary",
+        _ => "bg-secondary"
+    };
+}

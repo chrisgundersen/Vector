@@ -1,0 +1,114 @@
+@page "/login"
+@using Vector.Web.Underwriting.Services
+@inject MockAuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+
+<div class="container">
+    <div class="row justify-content-center mt-5">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-shield-lock me-2"></i>
+                        Vector - Development Login
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-4">
+                        Select a test user to log in. This mock login is only available in local development mode.
+                    </p>
+
+                    <h5 class="border-bottom pb-2 mb-3">
+                        <i class="bi bi-person-badge me-2"></i>
+                        Underwriters
+                    </h5>
+                    <div class="list-group mb-4">
+                        @foreach (var user in MockUserService.Underwriters)
+                        {
+                            <button type="button"
+                                    class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+                                    @onclick="() => LoginAs(user)">
+                                <div>
+                                    <strong>@user.Name</strong>
+                                    <br />
+                                    <small class="text-muted">@user.Email</small>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge bg-primary">@user.Title</span>
+                                    @if (user.IsAdmin)
+                                    {
+                                        <br />
+                                        <span class="badge bg-warning text-dark mt-1">Admin</span>
+                                    }
+                                </div>
+                            </button>
+                        }
+                    </div>
+
+                    <h5 class="border-bottom pb-2 mb-3">
+                        <i class="bi bi-building me-2"></i>
+                        Producers (Brokers/Agencies)
+                    </h5>
+                    <div class="list-group mb-4">
+                        @foreach (var user in MockUserService.ProducerUsers)
+                        {
+                            <button type="button"
+                                    class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+                                    @onclick="() => LoginAs(user)">
+                                <div>
+                                    <strong>@user.Name</strong>
+                                    <br />
+                                    <small class="text-muted">@user.Email</small>
+                                </div>
+                                <span class="badge bg-success">Producer</span>
+                            </button>
+                        }
+                    </div>
+
+                    <h5 class="border-bottom pb-2 mb-3">
+                        <i class="bi bi-gear me-2"></i>
+                        Administration
+                    </h5>
+                    <div class="list-group">
+                        @foreach (var user in MockUserService.AllUsers.Where(u => u.IsAdmin && !u.IsUnderwriter))
+                        {
+                            <button type="button"
+                                    class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+                                    @onclick="() => LoginAs(user)">
+                                <div>
+                                    <strong>@user.Name</strong>
+                                    <br />
+                                    <small class="text-muted">@user.Email</small>
+                                </div>
+                                <span class="badge bg-warning text-dark">@user.Title</span>
+                            </button>
+                        }
+                    </div>
+                </div>
+                <div class="card-footer text-muted">
+                    <small>
+                        <i class="bi bi-info-circle me-1"></i>
+                        This is a development-only feature. Production uses Microsoft Entra ID authentication.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private void LoginAs(MockUser user)
+    {
+        AuthStateProvider.SwitchUser(user.Id);
+
+        // Navigate to appropriate dashboard based on role
+        if (user.IsProducer)
+        {
+            Navigation.NavigateTo("/producer", forceLoad: true);
+        }
+        else
+        {
+            Navigation.NavigateTo("/", forceLoad: true);
+        }
+    }
+}

@@ -11,7 +11,7 @@ namespace Vector.Infrastructure.Email;
 public class SimulatedEmailService : IEmailService, ISimulatedEmailService
 {
     private readonly ILogger<SimulatedEmailService> _logger;
-    private readonly ConcurrentQueue<EmailMessage> _pendingEmails = new();
+    private readonly ConcurrentDictionary<string, EmailMessage> _pendingEmails = new();
     private readonly ConcurrentDictionary<string, EmailMessage> _processedEmails = new();
     private readonly ConcurrentDictionary<string, List<EmailAttachmentInfo>> _attachments = new();
     private readonly ConcurrentDictionary<string, SimulatedAttachment> _attachmentContent = new();
@@ -40,7 +40,7 @@ public class SimulatedEmailService : IEmailService, ISimulatedEmailService
             request.Attachments?.Count > 0,
             request.Attachments?.Count ?? 0);
 
-        _pendingEmails.Enqueue(email);
+        _pendingEmails.TryAdd(messageId, email);
 
         // Store attachments if any
         if (request.Attachments?.Count > 0)
@@ -75,7 +75,19 @@ public class SimulatedEmailService : IEmailService, ISimulatedEmailService
     /// </summary>
     public IReadOnlyList<EmailMessage> GetPendingEmails()
     {
-        return _pendingEmails.ToArray();
+        return _pendingEmails.Values.OrderBy(e => e.ReceivedDateTime).ToList();
+    }
+
+    /// <summary>
+    /// Marks an email as processed by moving it from pending to processed.
+    /// </summary>
+    public void MarkAsProcessed(string messageId)
+    {
+        if (_pendingEmails.TryRemove(messageId, out var email))
+        {
+            _processedEmails.TryAdd(messageId, email);
+            _logger.LogInformation("Email {MessageId} marked as processed", messageId);
+        }
     }
 
     /// <summary>
@@ -91,7 +103,7 @@ public class SimulatedEmailService : IEmailService, ISimulatedEmailService
     /// </summary>
     public void ClearAll()
     {
-        while (_pendingEmails.TryDequeue(out _)) { }
+        _pendingEmails.Clear();
         _processedEmails.Clear();
         _attachments.Clear();
         _attachmentContent.Clear();
@@ -103,12 +115,19 @@ public class SimulatedEmailService : IEmailService, ISimulatedEmailService
         int maxResults,
         CancellationToken cancellationToken = default)
     {
-        var emails = new List<EmailMessage>();
+        var emails = _pendingEmails.Values
+            .OrderBy(e => e.ReceivedDateTime)
+            .Take(maxResults)
+            .ToList();
 
-        while (emails.Count < maxResults && _pendingEmails.TryDequeue(out var email))
+        // Move retrieved emails to processed
+        foreach (var email in emails)
         {
-            emails.Add(email);
-            _logger.LogDebug("Retrieved simulated email: {MessageId}", email.MessageId);
+            if (_pendingEmails.TryRemove(email.MessageId, out _))
+            {
+                _processedEmails.TryAdd(email.MessageId, email);
+                _logger.LogDebug("Retrieved simulated email: {MessageId}", email.MessageId);
+            }
         }
 
         _logger.LogInformation(
@@ -223,6 +242,7 @@ public interface ISimulatedEmailService
     string AddSimulatedEmail(SimulatedEmailRequest request);
     IReadOnlyList<EmailMessage> GetPendingEmails();
     IReadOnlyList<EmailMessage> GetProcessedEmails();
+    void MarkAsProcessed(string messageId);
     void ClearAll();
 }
 

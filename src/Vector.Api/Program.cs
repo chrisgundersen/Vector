@@ -64,6 +64,7 @@ try
     app.UseHttpsRedirection();
     app.UseAuthentication();
     app.UseAuthorization();
+    app.UseCurrentUser();
     app.MapControllers();
 
     // Health check endpoints for Kubernetes probes

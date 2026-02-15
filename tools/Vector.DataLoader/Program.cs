@@ -43,16 +43,29 @@ class Program
             "--seed",
             description: "Random seed for reproducible data generation");
 
+        var submissionsOption = new Option<bool>(
+            "--submissions",
+            getDefaultValue: () => false,
+            description: "Create submissions directly (bypasses email/document processing)");
+
         rootCommand.AddOption(urlOption);
         rootCommand.AddOption(countOption);
         rootCommand.AddOption(delayOption);
         rootCommand.AddOption(processOption);
         rootCommand.AddOption(seedOption);
+        rootCommand.AddOption(submissionsOption);
 
-        rootCommand.SetHandler(async (url, count, delay, process, seed) =>
+        rootCommand.SetHandler(async (url, count, delay, process, seed, createSubmissions) =>
         {
-            await RunDataLoader(url, count, delay, process, seed);
-        }, urlOption, countOption, delayOption, processOption, seedOption);
+            if (createSubmissions)
+            {
+                await RunSubmissionsLoader(url, count);
+            }
+            else
+            {
+                await RunDataLoader(url, count, delay, process, seed);
+            }
+        }, urlOption, countOption, delayOption, processOption, seedOption, submissionsOption);
 
         return await rootCommand.InvokeAsync(args);
     }
@@ -243,6 +256,88 @@ class Program
         AnsiConsole.MarkupLine("  [cyan]{0}/api/v1/submissions[/]", baseUrl);
     }
 
+    static async Task RunSubmissionsLoader(string baseUrl, int count)
+    {
+        AnsiConsole.Write(new FigletText("Vector Data Loader").Color(Color.Blue));
+        AnsiConsole.MarkupLine("[cyan]Mode: Direct Submission Creation[/]");
+        AnsiConsole.WriteLine();
+
+        using var httpClient = new HttpClient { BaseAddress = new Uri(baseUrl) };
+
+        // Check if simulation is enabled
+        try
+        {
+            var statusResponse = await httpClient.GetAsync("/api/simulation/status");
+            if (!statusResponse.IsSuccessStatusCode)
+            {
+                AnsiConsole.MarkupLine("[red]Failed to connect to Vector API at {0}[/]", baseUrl);
+                AnsiConsole.MarkupLine("[yellow]Make sure the API is running with 'dotnet run --launch-profile Local'[/]");
+                return;
+            }
+
+            var status = await statusResponse.Content.ReadFromJsonAsync<SimulationStatus>(JsonOptions);
+            if (status?.Enabled != true)
+            {
+                AnsiConsole.MarkupLine("[red]Simulation endpoints are not enabled[/]");
+                AnsiConsole.MarkupLine("[yellow]Set EnableSimulationEndpoints=true in appsettings.Local.json[/]");
+                return;
+            }
+
+            AnsiConsole.MarkupLine("[green]Connected to Vector API[/] - Simulation endpoints enabled");
+        }
+        catch (HttpRequestException ex)
+        {
+            AnsiConsole.MarkupLine("[red]Failed to connect to Vector API at {0}[/]", baseUrl);
+            AnsiConsole.MarkupLine("[red]Error: {0}[/]", ex.Message);
+            AnsiConsole.MarkupLine("[yellow]Make sure the API is running with:[/]");
+            AnsiConsole.MarkupLine("  [cyan]cd src/Vector.Api && dotnet run --launch-profile Local[/]");
+            return;
+        }
+
+        AnsiConsole.WriteLine();
+        AnsiConsole.MarkupLine("Creating [cyan]{0}[/] submissions directly...", count);
+
+        await AnsiConsole.Status()
+            .Spinner(Spinner.Known.Dots)
+            .StartAsync("Creating submissions...", async ctx =>
+            {
+                var response = await httpClient.PostAsync($"/api/simulation/submissions?count={count}", null);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var result = await response.Content.ReadFromJsonAsync<SubmissionsResult>(JsonOptions);
+
+                    AnsiConsole.MarkupLine("[green]Created {0} of {1} submissions[/]",
+                        result?.Created ?? 0,
+                        result?.Requested ?? count);
+
+                    if (result?.Errors?.Count > 0)
+                    {
+                        AnsiConsole.MarkupLine("[red]Errors:[/]");
+                        foreach (var error in result.Errors.Take(5))
+                        {
+                            AnsiConsole.MarkupLine("  [red]- {0}[/]", error);
+                        }
+                    }
+                }
+                else
+                {
+                    var error = await response.Content.ReadAsStringAsync();
+                    AnsiConsole.MarkupLine("[red]Failed to create submissions: {0}[/]", error);
+                }
+            });
+
+        AnsiConsole.WriteLine();
+        AnsiConsole.Write(new Rule("[green]Data Loading Complete[/]").RuleStyle("blue"));
+        AnsiConsole.WriteLine();
+        AnsiConsole.MarkupLine("View submissions in the Underwriting Dashboard:");
+        AnsiConsole.MarkupLine("  [cyan]http://localhost:5176/[/]");
+        AnsiConsole.WriteLine();
+        AnsiConsole.MarkupLine("Or query the API:");
+        AnsiConsole.MarkupLine("  [cyan]{0}/api/v1/submissions[/]", baseUrl);
+    }
+
     record SimulationStatus(bool Enabled, string EmailServiceType, string Message);
     record ProcessResult(int TotalPending, int Processed, List<string>? Errors);
+    record SubmissionsResult(int Requested, int Created, List<Guid>? SubmissionIds, List<string>? Errors);
 }
