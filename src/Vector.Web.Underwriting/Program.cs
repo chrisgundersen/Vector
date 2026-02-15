@@ -14,8 +14,20 @@ var disableAuthentication = builder.Configuration.GetValue<bool>("Authentication
 
 if (disableAuthentication)
 {
-    // For local development - no authentication required
-    builder.Services.AddAuthentication();
+    // For local development - use cookie auth with no login required
+    builder.Services.AddAuthentication("LocalDev")
+        .AddCookie("LocalDev", options =>
+        {
+            options.Cookie.Name = "VectorLocalDev";
+            options.ExpireTimeSpan = TimeSpan.FromDays(1);
+            options.Events.OnRedirectToLogin = context =>
+            {
+                // Don't redirect, just return 200 - we're in dev mode
+                context.Response.StatusCode = 200;
+                return Task.CompletedTask;
+            };
+        });
+
     builder.Services.AddAuthorization(options =>
     {
         // No fallback policy - allow anonymous access
@@ -70,11 +82,8 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-if (!disableAuthentication)
-{
-    app.UseAuthentication();
-    app.UseAuthorization();
-}
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.UseAntiforgery();
 
