@@ -78,3 +78,7 @@ local.settings.json
 # macOS
 .DS_Store
 ~$*.xlsx
+vector-local.db
+vector-local.db-journal
+vector-local.db-shm
+vector-local.db-wal

@@ -16,4 +16,7 @@
     <Project Path="tests/Vector.EndToEnd.Tests/Vector.EndToEnd.Tests.csproj" />
     <Project Path="tests/Vector.Infrastructure.IntegrationTests/Vector.Infrastructure.IntegrationTests.csproj" />
   </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/Vector.DataLoader/Vector.DataLoader.csproj" />
+  </Folder>
 </Solution>

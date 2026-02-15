@@ -33,8 +33,15 @@ public static class DependencyInjection
         IConfiguration configuration)
     {
         var useInMemoryDatabase = configuration.GetValue<bool>("UseInMemoryDatabase");
+        var sqliteConnectionString = configuration.GetConnectionString("Sqlite");
 
-        if (useInMemoryDatabase)
+        if (!string.IsNullOrEmpty(sqliteConnectionString))
+        {
+            // SQLite for local development with shared database file
+            services.AddDbContext<VectorDbContext>(options =>
+                options.UseSqlite(sqliteConnectionString));
+        }
+        else if (useInMemoryDatabase)
         {
             services.AddDbContext<VectorDbContext>(options =>
                 options.UseInMemoryDatabase("VectorDb"));
