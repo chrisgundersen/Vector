@@ -1,25 +1,28 @@
 @using Microsoft.AspNetCore.Components.Authorization
+@inject AuthSettings AuthSettings
 
 <CascadingAuthenticationState>
     <Router AppAssembly="typeof(Program).Assembly">
         <Found Context="routeData">
-            <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
-                <NotAuthorized>
-                    <div class="container mt-5">
-                        <div class="alert alert-warning">
-                            <h4>Access Denied</h4>
-                            <p>You are not authorized to view this page.</p>
+            @if (AuthSettings.DisableAuthentication)
+            {
+                <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
+            }
+            else
+            {
+                <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
+                    <NotAuthorized>
+                        <RedirectToLogin />
+                    </NotAuthorized>
+                    <Authorizing>
+                        <div class="d-flex justify-content-center align-items-center" style="height: 100vh;">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
                         </div>
-                    </div>
-                </NotAuthorized>
-                <Authorizing>
-                    <div class="d-flex justify-content-center align-items-center" style="height: 100vh;">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Loading...</span>
-                        </div>
-                    </div>
-                </Authorizing>
-            </AuthorizeRouteView>
+                    </Authorizing>
+                </AuthorizeRouteView>
+            }
             <FocusOnNavigate RouteData="routeData" Selector="h1" />
         </Found>
         <NotFound>
