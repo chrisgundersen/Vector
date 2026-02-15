@@ -10,21 +10,35 @@ using Vector.Web.Underwriting.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add Microsoft Entra ID authentication
-builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
-    .AddMicrosoftIdentityWebApp(builder.Configuration.GetSection("AzureAd"));
+var disableAuthentication = builder.Configuration.GetValue<bool>("Authentication:DisableAuthentication");
 
-builder.Services.AddControllersWithViews()
-    .AddMicrosoftIdentityUI();
-
-builder.Services.AddAuthorization(options =>
+if (disableAuthentication)
 {
-    options.AddPolicy("RequireUnderwriterRole", policy =>
-        policy.RequireRole("Underwriter", "Admin"));
+    // For local development - no authentication required
+    builder.Services.AddAuthentication();
+    builder.Services.AddAuthorization(options =>
+    {
+        // No fallback policy - allow anonymous access
+    });
+}
+else
+{
+    // Add Microsoft Entra ID authentication
+    builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
+        .AddMicrosoftIdentityWebApp(builder.Configuration.GetSection("AzureAd"));
 
-    // Fallback policy requires authentication for all pages
-    options.FallbackPolicy = options.DefaultPolicy;
-});
+    builder.Services.AddControllersWithViews()
+        .AddMicrosoftIdentityUI();
+
+    builder.Services.AddAuthorization(options =>
+    {
+        options.AddPolicy("RequireUnderwriterRole", policy =>
+            policy.RequireRole("Underwriter", "Admin"));
+
+        // Fallback policy requires authentication for all pages
+        options.FallbackPolicy = options.DefaultPolicy;
+    });
+}
 
 // Add cascade authentication state for Blazor
 builder.Services.AddCascadingAuthenticationState();
@@ -56,13 +70,20 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.UseAuthentication();
-app.UseAuthorization();
+if (!disableAuthentication)
+{
+    app.UseAuthentication();
+    app.UseAuthorization();
+}
 
 app.UseAntiforgery();
 
 app.MapStaticAssets();
-app.MapControllers(); // For Identity UI controllers
+
+if (!disableAuthentication)
+{
+    app.MapControllers(); // For Identity UI controllers
+}
 app.MapHub<SubmissionHub>("/hubs/submissions"); // SignalR hub
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
