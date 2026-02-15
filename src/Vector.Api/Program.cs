@@ -123,9 +123,16 @@ static async Task InitializeDatabaseAsync(WebApplication app)
     try
     {
         var useInMemoryDatabase = configuration.GetValue<bool>("UseInMemoryDatabase");
+        var sqliteConnectionString = configuration.GetConnectionString("Sqlite");
         var context = services.GetRequiredService<VectorDbContext>();
 
-        if (!useInMemoryDatabase)
+        if (!string.IsNullOrEmpty(sqliteConnectionString))
+        {
+            // SQLite for local development - use EnsureCreated (no migrations)
+            logger.LogInformation("Using SQLite database, ensuring created...");
+            await context.Database.EnsureCreatedAsync();
+        }
+        else if (!useInMemoryDatabase)
         {
             logger.LogInformation("Applying database migrations...");
             await context.Database.MigrateAsync();
