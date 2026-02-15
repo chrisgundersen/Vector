@@ -19,24 +19,28 @@ builder.Services.AddSingleton(new AuthSettings { DisableAuthentication = disable
 
 if (disableAuthentication)
 {
-    // For local development - use cookie auth with no login required
+    // For local development - minimal auth setup that doesn't redirect
     builder.Services.AddAuthentication("LocalDev")
         .AddCookie("LocalDev", options =>
         {
-            options.Cookie.Name = "VectorLocalDev";
-            options.ExpireTimeSpan = TimeSpan.FromDays(1);
+            // Prevent redirects - just allow access
             options.Events.OnRedirectToLogin = context =>
             {
-                // Don't redirect, just return 200 - we're in dev mode
-                context.Response.StatusCode = 200;
+                context.Response.StatusCode = StatusCodes.Status200OK;
+                return Task.CompletedTask;
+            };
+            options.Events.OnRedirectToAccessDenied = context =>
+            {
+                context.Response.StatusCode = StatusCodes.Status200OK;
                 return Task.CompletedTask;
             };
         });
 
-    builder.Services.AddAuthorization(options =>
-    {
-        // No fallback policy - allow anonymous access
-    });
+    // No authorization policies - allow all access
+    builder.Services.AddAuthorizationBuilder()
+        .SetFallbackPolicy(new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
+            .RequireAssertion(_ => true) // Always allow
+            .Build());
 
     // Provide a fake authentication state for Blazor components
     builder.Services.AddScoped<AuthenticationStateProvider, AnonymousAuthenticationStateProvider>();
@@ -59,9 +63,6 @@ else
         options.FallbackPolicy = options.DefaultPolicy;
     });
 }
-
-// Add cascade authentication state for Blazor
-builder.Services.AddCascadingAuthenticationState();
 
 // Add SignalR for real-time updates
 builder.Services.AddSignalR();
@@ -89,17 +90,16 @@ if (app.Environment.IsProduction())
     app.UseHttpsRedirection();
 }
 
+app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.UseAntiforgery();
-
-app.MapStaticAssets();
 
 if (!disableAuthentication)
 {
     app.MapControllers(); // For Identity UI controllers
 }
+
 app.MapHub<SubmissionHub>("/hubs/submissions"); // SignalR hub
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

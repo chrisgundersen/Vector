@@ -1,16 +1,16 @@
-@inject AuthSettings AuthSettings
+@using Microsoft.AspNetCore.Components.Authorization
 
-<Router AppAssembly="typeof(Program).Assembly">
-    <Found Context="routeData">
-        @if (AuthSettings.DisableAuthentication)
-        {
-            <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
-        }
-        else
-        {
+<CascadingAuthenticationState>
+    <Router AppAssembly="typeof(Program).Assembly">
+        <Found Context="routeData">
             <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
                 <NotAuthorized>
-                    <RedirectToLogin />
+                    <div class="container mt-5">
+                        <div class="alert alert-warning">
+                            <h4>Access Denied</h4>
+                            <p>You are not authorized to view this page.</p>
+                        </div>
+                    </div>
                 </NotAuthorized>
                 <Authorizing>
                     <div class="d-flex justify-content-center align-items-center" style="height: 100vh;">
@@ -20,7 +20,15 @@
                     </div>
                 </Authorizing>
             </AuthorizeRouteView>
-        }
-        <FocusOnNavigate RouteData="routeData" Selector="h1" />
-    </Found>
-</Router>
+            <FocusOnNavigate RouteData="routeData" Selector="h1" />
+        </Found>
+        <NotFound>
+            <div class="container mt-5">
+                <div class="alert alert-info">
+                    <h4>Page Not Found</h4>
+                    <p>Sorry, the page you requested could not be found.</p>
+                </div>
+            </div>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState>
