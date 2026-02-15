@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Identity.Web;
 using Microsoft.Identity.Web.UI;
 using Vector.Application;
@@ -36,6 +37,9 @@ if (disableAuthentication)
     {
         // No fallback policy - allow anonymous access
     });
+
+    // Provide a fake authentication state for Blazor components
+    builder.Services.AddScoped<AuthenticationStateProvider, AnonymousAuthenticationStateProvider>();
 }
 else
 {
