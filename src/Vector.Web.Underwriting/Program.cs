@@ -6,11 +6,15 @@ using Vector.Application.Common.Interfaces;
 using Vector.Infrastructure;
 using Vector.Web.Underwriting.Components;
 using Vector.Web.Underwriting.Hubs;
+using Vector.Web.Underwriting;
 using Vector.Web.Underwriting.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 var disableAuthentication = builder.Configuration.GetValue<bool>("Authentication:DisableAuthentication");
+
+// Make auth setting available to Blazor components
+builder.Services.AddSingleton(new AuthSettings { DisableAuthentication = disableAuthentication });
 
 if (disableAuthentication)
 {
@@ -74,13 +78,12 @@ builder.Services.AddRazorComponents()
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-if (!app.Environment.IsDevelopment())
+if (app.Environment.IsProduction())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
     app.UseHsts();
+    app.UseHttpsRedirection();
 }
-
-app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
