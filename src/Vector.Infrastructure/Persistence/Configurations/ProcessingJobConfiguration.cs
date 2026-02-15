@@ -98,8 +98,7 @@ public class ProcessingJobConfiguration : IEntityTypeConfiguration<ProcessingJob
 
             // Validation errors stored as JSON array
             doc.Property("_validationErrors")
-                .HasColumnName("ValidationErrors")
-                .HasColumnType("nvarchar(max)");
+                .HasColumnName("ValidationErrors");
         });
 
         // Indexes

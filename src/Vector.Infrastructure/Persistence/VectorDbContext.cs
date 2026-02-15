@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Vector.Application.Common.Interfaces;
 using Vector.Domain.Common;
 using Vector.Domain.DocumentProcessing.Aggregates;
@@ -32,6 +33,16 @@ public class VectorDbContext(
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(VectorDbContext).Assembly);
+
+        // Remove temporal table configuration for SQLite (not supported)
+        if (Database.IsSqlite())
+        {
+            foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+            {
+                // SQLite doesn't support temporal tables
+                entityType.SetIsTemporal(false);
+            }
+        }
 
         // Apply multi-tenant query filters
         modelBuilder.Entity<InboundEmail>()
