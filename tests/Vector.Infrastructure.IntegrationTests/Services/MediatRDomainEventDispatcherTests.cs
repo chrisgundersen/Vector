@@ -76,6 +76,41 @@ public class MediatRDomainEventDispatcherTests
         ((DomainEventNotification<TestDomainEvent>)capturedNotification!).DomainEvent.Data.Should().Be("typed-check");
     }
 
+    [Fact]
+    public async Task DispatchEventsAsync_WhenHandlerThrows_PropagatesException()
+    {
+        var domainEvent = new TestDomainEvent("will-fail");
+
+        _publisherMock.Setup(p => p.Publish(It.IsAny<object>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Handler failure"));
+
+        var act = () => _dispatcher.DispatchEventsAsync([domainEvent]);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("Handler failure");
+    }
+
+    [Fact]
+    public async Task DispatchEventsAsync_WithMultipleEvents_WhenSecondHandlerThrows_FirstIsStillPublished()
+    {
+        var event1 = new TestDomainEvent("first");
+        var event2 = new AnotherTestDomainEvent(42);
+        var publishCount = 0;
+
+        _publisherMock.Setup(p => p.Publish(It.IsAny<object>(), It.IsAny<CancellationToken>()))
+            .Callback<object, CancellationToken>((_, _) =>
+            {
+                publishCount++;
+                if (publishCount == 2)
+                    throw new InvalidOperationException("Second handler failed");
+            });
+
+        var act = () => _dispatcher.DispatchEventsAsync([event1, event2]);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+        publishCount.Should().Be(2);
+    }
+
     private sealed record TestDomainEvent(string Data) : DomainEvent;
     private sealed record AnotherTestDomainEvent(int Value) : DomainEvent;
 }

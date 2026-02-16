@@ -6,6 +6,7 @@
 @using Vector.Application.Submissions.Commands
 @inject IMediator Mediator
 @inject NavigationManager Navigation
+@inject ILogger<Vector.Web.Underwriting.Components.Pages.Submissions.Details> Logger
 @implements IAsyncDisposable
 @attribute [Authorize]
 
@@ -618,6 +619,7 @@ else
 
         _hubConnection.On<object>("SubmissionUpdated", async (_) =>
         {
+            if (_processing) return;
             await InvokeAsync(async () =>
             {
                 await LoadSubmissionAsync();
@@ -627,12 +629,24 @@ else
 
         _hubConnection.On<object>("SubmissionAssigned", async (_) =>
         {
+            if (_processing) return;
             await InvokeAsync(async () =>
             {
                 await LoadSubmissionAsync();
                 StateHasChanged();
             });
         });
+
+        _hubConnection.Reconnected += async (_) =>
+        {
+            Logger.LogInformation("SignalR reconnected, re-joining submission group {SubmissionId}", Id);
+            await _hubConnection.InvokeAsync("JoinSubmissionGroup", Id);
+            await InvokeAsync(async () =>
+            {
+                await LoadSubmissionAsync();
+                StateHasChanged();
+            });
+        };
 
         try
         {
@@ -641,7 +655,7 @@ else
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error connecting to hub: {ex.Message}");
+            Logger.LogWarning(ex, "Failed to establish SignalR hub connection");
         }
     }
 
@@ -649,6 +663,17 @@ else
     {
         if (_hubConnection is not null)
         {
+            try
+            {
+                if (_hubConnection.State == HubConnectionState.Connected)
+                {
+                    await _hubConnection.InvokeAsync("LeaveSubmissionGroup", Id);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogDebug(ex, "Error leaving submission group during dispose");
+            }
             await _hubConnection.DisposeAsync();
         }
     }

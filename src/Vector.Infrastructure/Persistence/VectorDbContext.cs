@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Vector.Application.Common.Interfaces;
 using Vector.Domain.Common;
 using Vector.Domain.DocumentProcessing.Aggregates;
@@ -19,8 +20,10 @@ namespace Vector.Infrastructure.Persistence;
 public class VectorDbContext(
     DbContextOptions<VectorDbContext> options,
     ICurrentUserService currentUserService,
+    ILogger<VectorDbContext>? logger = null,
     IDomainEventDispatcher? domainEventDispatcher = null) : DbContext(options), IUnitOfWork
 {
+    private bool _isDispatchingEvents;
     public DbSet<InboundEmail> InboundEmails => Set<InboundEmail>();
     public DbSet<ProcessingJob> ProcessingJobs => Set<ProcessingJob>();
     public DbSet<Submission> Submissions => Set<Submission>();
@@ -66,13 +69,28 @@ public class VectorDbContext(
     {
         UpdateAuditableEntities();
 
-        var domainEvents = CollectDomainEvents();
+        // Skip event collection during dispatch to prevent re-entrancy
+        var domainEvents = _isDispatchingEvents ? [] : CollectDomainEvents();
 
         var result = await base.SaveChangesAsync(cancellationToken);
 
         if (domainEventDispatcher is not null && domainEvents.Count > 0)
         {
-            await domainEventDispatcher.DispatchEventsAsync(domainEvents, cancellationToken);
+            _isDispatchingEvents = true;
+            try
+            {
+                // Use CancellationToken.None: save succeeded, dispatch should run to completion
+                await domainEventDispatcher.DispatchEventsAsync(domainEvents, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                // Dispatch failure must not propagate — the save already succeeded
+                logger?.LogError(ex, "Failed to dispatch {Count} domain event(s) after successful save", domainEvents.Count);
+            }
+            finally
+            {
+                _isDispatchingEvents = false;
+            }
         }
 
         return result;

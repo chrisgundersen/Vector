@@ -62,12 +62,9 @@ else
 // Add SignalR for real-time updates
 builder.Services.AddSignalR();
 
-// Add application services (MediatR)
-builder.Services.AddApplication();
-
-// Register Web.Underwriting notification handlers for domain event → SignalR bridging
-builder.Services.AddMediatR(cfg =>
-    cfg.RegisterServicesFromAssemblyContaining<Vector.Web.Underwriting.EventHandlers.SubmissionCreatedNotificationHandler>());
+// Add application services (MediatR + notification handlers from this assembly)
+builder.Services.AddApplication(
+    typeof(Vector.Web.Underwriting.EventHandlers.SubmissionCreatedNotificationHandler).Assembly);
 
 // Add infrastructure services
 builder.Services.AddInfrastructure(builder.Configuration);
