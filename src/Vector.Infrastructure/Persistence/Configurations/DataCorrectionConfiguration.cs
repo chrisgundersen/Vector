@@ -11,6 +11,7 @@ public class DataCorrectionRequestConfiguration : IEntityTypeConfiguration<DataC
         builder.ToTable("DataCorrectionRequests");
 
         builder.HasKey(r => r.Id);
+        builder.Property(r => r.Id).ValueGeneratedNever();
 
         builder.Property(r => r.SubmissionId)
             .IsRequired();

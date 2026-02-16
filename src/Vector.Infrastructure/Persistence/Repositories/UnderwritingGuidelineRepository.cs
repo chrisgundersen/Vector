@@ -94,7 +94,14 @@ public class UnderwritingGuidelineRepository(VectorDbContext context) : IUnderwr
 
     public void Update(UnderwritingGuideline aggregate)
     {
-        context.UnderwritingGuidelines.Update(aggregate);
+        // If the entity is already tracked, let the change tracker detect modifications
+        // automatically. Calling DbSet.Update() on a tracked entity with new child entities
+        // incorrectly marks them as Modified instead of Added, causing concurrency errors.
+        var entry = context.Entry(aggregate);
+        if (entry.State == EntityState.Detached)
+        {
+            context.UnderwritingGuidelines.Update(aggregate);
+        }
     }
 
     public void Remove(UnderwritingGuideline aggregate)

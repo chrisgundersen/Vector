@@ -11,6 +11,7 @@ public class InboundEmailConfiguration : IEntityTypeConfiguration<InboundEmail>
         builder.ToTable("InboundEmails", t => t.IsTemporal());
 
         builder.HasKey(e => e.Id);
+        builder.Property(e => e.Id).ValueGeneratedNever();
 
         builder.Property(e => e.TenantId)
             .IsRequired();
@@ -74,6 +75,7 @@ public class InboundEmailConfiguration : IEntityTypeConfiguration<InboundEmail>
 
             attachment.WithOwner().HasForeignKey("InboundEmailId");
             attachment.HasKey(a => a.Id);
+            attachment.Property(a => a.Id).ValueGeneratedNever();
 
             attachment.Property(a => a.BlobStorageUrl)
                 .HasMaxLength(2000)

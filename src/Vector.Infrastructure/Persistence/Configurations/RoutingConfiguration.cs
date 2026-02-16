@@ -12,6 +12,7 @@ public class RoutingRuleConfiguration : IEntityTypeConfiguration<RoutingRule>
         builder.ToTable("RoutingRules", t => t.IsTemporal());
 
         builder.HasKey(r => r.Id);
+        builder.Property(r => r.Id).ValueGeneratedNever();
 
         builder.Property(r => r.Name)
             .HasMaxLength(200)
@@ -68,6 +69,7 @@ public class RoutingDecisionConfiguration : IEntityTypeConfiguration<RoutingDeci
         builder.ToTable("RoutingDecisions", t => t.IsTemporal());
 
         builder.HasKey(d => d.Id);
+        builder.Property(d => d.Id).ValueGeneratedNever();
 
         builder.Property(d => d.SubmissionId)
             .IsRequired();
@@ -130,6 +132,7 @@ public class ProducerUnderwriterPairingConfiguration : IEntityTypeConfiguration<
         builder.ToTable("ProducerUnderwriterPairings");
 
         builder.HasKey(p => p.Id);
+        builder.Property(p => p.Id).ValueGeneratedNever();
 
         builder.Property(p => p.ProducerId)
             .IsRequired();

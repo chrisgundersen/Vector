@@ -13,6 +13,7 @@ public class UnderwritingGuidelineConfiguration : IEntityTypeConfiguration<Under
         builder.ToTable("UnderwritingGuidelines", t => t.IsTemporal());
 
         builder.HasKey(g => g.Id);
+        builder.Property(g => g.Id).ValueGeneratedNever();
 
         builder.Property(g => g.TenantId)
             .IsRequired();
@@ -69,6 +70,7 @@ public class UnderwritingRuleConfiguration : IEntityTypeConfiguration<Underwriti
         builder.ToTable("UnderwritingRules");
 
         builder.HasKey(r => r.Id);
+        builder.Property(r => r.Id).ValueGeneratedNever();
 
         builder.Property(r => r.Name)
             .HasMaxLength(200)

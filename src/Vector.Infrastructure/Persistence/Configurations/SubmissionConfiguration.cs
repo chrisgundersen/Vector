@@ -11,6 +11,7 @@ public class SubmissionConfiguration : IEntityTypeConfiguration<Submission>
         builder.ToTable("Submissions", t => t.IsTemporal());
 
         builder.HasKey(s => s.Id);
+        builder.Property(s => s.Id).ValueGeneratedNever();
 
         builder.Property(s => s.TenantId)
             .IsRequired();
@@ -160,6 +161,7 @@ public class SubmissionConfiguration : IEntityTypeConfiguration<Submission>
             cov.ToTable("SubmissionCoverages", t => t.IsTemporal());
             cov.WithOwner().HasForeignKey("SubmissionId");
             cov.HasKey(c => c.Id);
+            cov.Property(c => c.Id).ValueGeneratedNever();
 
             cov.Property(c => c.Type)
                 .HasConversion<string>()
@@ -198,6 +200,7 @@ public class SubmissionConfiguration : IEntityTypeConfiguration<Submission>
             loc.ToTable("SubmissionLocations", t => t.IsTemporal());
             loc.WithOwner().HasForeignKey("SubmissionId");
             loc.HasKey(l => l.Id);
+            loc.Property(l => l.Id).ValueGeneratedNever();
 
             loc.Property(l => l.LocationNumber);
 
@@ -248,6 +251,7 @@ public class SubmissionConfiguration : IEntityTypeConfiguration<Submission>
             loss.ToTable("SubmissionLossHistory", t => t.IsTemporal());
             loss.WithOwner().HasForeignKey("SubmissionId");
             loss.HasKey(l => l.Id);
+            loss.Property(l => l.Id).ValueGeneratedNever();
 
             loss.Property(l => l.DateOfLoss).IsRequired();
 

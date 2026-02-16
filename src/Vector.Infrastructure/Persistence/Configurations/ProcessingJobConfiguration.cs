@@ -11,6 +11,7 @@ public class ProcessingJobConfiguration : IEntityTypeConfiguration<ProcessingJob
         builder.ToTable("ProcessingJobs", t => t.IsTemporal());
 
         builder.HasKey(j => j.Id);
+        builder.Property(j => j.Id).ValueGeneratedNever();
 
         builder.Property(j => j.TenantId)
             .IsRequired();
@@ -41,6 +42,7 @@ public class ProcessingJobConfiguration : IEntityTypeConfiguration<ProcessingJob
 
             doc.WithOwner().HasForeignKey("ProcessingJobId");
             doc.HasKey(d => d.Id);
+            doc.Property(d => d.Id).ValueGeneratedNever();
 
             doc.Property(d => d.SourceAttachmentId);
             doc.Property(d => d.OriginalFileName)
