@@ -66,6 +66,9 @@
             </div>
             <div class="col-auto">
                 <div class="btn-group">
+                    <a href="/pairings/@Id/edit" class="btn btn-outline-secondary">
+                        <i class="bi bi-pencil"></i> Edit
+                    </a>
                     @if (!pairing.IsActive)
                     {
                         <button class="btn btn-success" @onclick="ActivatePairing" disabled="@isProcessing">

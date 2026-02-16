@@ -63,6 +63,25 @@ public sealed class RoutingRule : AggregateRoot
         return Result.Success(rule);
     }
 
+    public void UpdateDetails(string name, string description)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Name is required.", nameof(name));
+
+        if (name.Length > 200)
+            throw new ArgumentException("Name cannot exceed 200 characters.", nameof(name));
+
+        Name = name.Trim();
+        Description = description?.Trim() ?? string.Empty;
+        LastModifiedAt = DateTime.UtcNow;
+    }
+
+    public void SetStrategy(RoutingStrategy strategy)
+    {
+        Strategy = strategy;
+        LastModifiedAt = DateTime.UtcNow;
+    }
+
     public Result AddCondition(RoutingCondition condition)
     {
         if (_conditions.Contains(condition))

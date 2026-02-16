@@ -79,6 +79,46 @@ public class RoutingRulesController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
+    /// Updates an existing routing rule.
+    /// </summary>
+    [HttpPut("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateRoutingRuleRequest request, CancellationToken cancellationToken)
+    {
+        var command = new UpdateRoutingRuleCommand(
+            id,
+            request.Name,
+            request.Description,
+            request.Strategy,
+            request.Priority,
+            request.TargetUnderwriterId,
+            request.TargetUnderwriterName,
+            request.TargetTeamId,
+            request.TargetTeamName);
+
+        var result = await mediator.Send(command, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            if (result.Error.Code == "RoutingRule.NotFound")
+            {
+                return NotFound();
+            }
+
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Failed to update routing rule",
+                Detail = result.Error.Description,
+                Status = StatusCodes.Status400BadRequest
+            });
+        }
+
+        return NoContent();
+    }
+
+    /// <summary>
     /// Activates a routing rule.
     /// </summary>
     [HttpPost("{id:guid}/activate")]
@@ -143,6 +183,16 @@ public class RoutingRulesController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 }
+
+public record UpdateRoutingRuleRequest(
+    string Name,
+    string Description,
+    RoutingStrategy Strategy,
+    int Priority,
+    Guid? TargetUnderwriterId,
+    string? TargetUnderwriterName,
+    Guid? TargetTeamId,
+    string? TargetTeamName);
 
 public record CreateRoutingRuleRequest(
     string Name,

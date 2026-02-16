@@ -78,6 +78,42 @@ public class PairingsController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
+    /// Updates an existing pairing.
+    /// </summary>
+    [HttpPut("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdatePairingRequest request, CancellationToken cancellationToken)
+    {
+        var command = new UpdatePairingCommand(
+            id,
+            request.Priority,
+            request.EffectiveFrom,
+            request.EffectiveUntil,
+            request.CoverageTypes);
+
+        var result = await mediator.Send(command, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            if (result.Error.Code == "Pairing.NotFound")
+            {
+                return NotFound();
+            }
+
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Failed to update pairing",
+                Detail = result.Error.Description,
+                Status = StatusCodes.Status400BadRequest
+            });
+        }
+
+        return NoContent();
+    }
+
+    /// <summary>
     /// Activates a pairing.
     /// </summary>
     [HttpPost("{id:guid}/activate")]
@@ -131,6 +167,12 @@ public class PairingsController(IMediator mediator) : ControllerBase
         return NoContent();
     }
 }
+
+public record UpdatePairingRequest(
+    int Priority,
+    DateTime EffectiveFrom,
+    DateTime? EffectiveUntil,
+    IReadOnlyList<string>? CoverageTypes);
 
 public record CreatePairingRequest(
     Guid ProducerId,
