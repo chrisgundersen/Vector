@@ -2,7 +2,9 @@
 @using MediatR
 @using Vector.Application.Submissions.DTOs
 @using Vector.Application.Submissions.Queries
+@using Vector.Application.Submissions.Commands
 @using Vector.Application.Common.Interfaces
+@using Vector.Domain.Submission.Enums
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = "Producer")]
 @inject IMediator Mediator
@@ -488,18 +490,104 @@ else
             {
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5 class="mb-0">Data Correction Requests</h5>
-                    <a href="/producer/corrections" class="btn btn-sm btn-outline-primary">
-                        <i class="bi bi-pencil-square me-1"></i>View All Corrections
-                    </a>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-sm btn-primary" @onclick="ShowCorrectionForm">
+                            <i class="bi bi-plus-lg me-1"></i>Submit Correction
+                        </button>
+                        <a href="/producer/corrections" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-list me-1"></i>View All
+                        </a>
+                    </div>
                 </div>
 
-                @if (_corrections.Count == 0)
+                @if (!string.IsNullOrEmpty(_correctionSuccess))
                 {
-                    <div class="alert alert-info">
-                        <p class="mb-0">No data corrections have been requested for this submission.</p>
+                    <div class="alert alert-success alert-dismissible fade show">
+                        @_correctionSuccess
+                        <button type="button" class="btn-close" @onclick="() => _correctionSuccess = null"></button>
                     </div>
                 }
-                else
+
+                @if (!string.IsNullOrEmpty(_correctionError))
+                {
+                    <div class="alert alert-danger alert-dismissible fade show">
+                        @_correctionError
+                        <button type="button" class="btn-close" @onclick="() => _correctionError = null"></button>
+                    </div>
+                }
+
+                <!-- Correction Submission Form -->
+                @if (_showCorrectionForm)
+                {
+                    <div class="card border-primary mb-4">
+                        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0"><i class="bi bi-pencil-square me-2"></i>Submit Data Correction</h6>
+                            <button type="button" class="btn-close btn-close-white" @onclick="HideCorrectionForm"></button>
+                        </div>
+                        <div class="card-body">
+                            <EditForm Model="@_correctionModel" OnValidSubmit="SubmitCorrection">
+                                <DataAnnotationsValidator />
+
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="correctionType" class="form-label">Correction Type <span class="text-danger">*</span></label>
+                                        <InputSelect id="correctionType" class="form-select" @bind-Value="_correctionModel.Type">
+                                            @foreach (var type in Enum.GetValues<DataCorrectionType>())
+                                            {
+                                                <option value="@type">@FormatEnumName(type.ToString())</option>
+                                            }
+                                        </InputSelect>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="fieldName" class="form-label">Field Name <span class="text-danger">*</span></label>
+                                        <InputText id="fieldName" class="form-control" @bind-Value="_correctionModel.FieldName"
+                                            placeholder="e.g., Insured Name, Address, Coverage Limit" />
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="currentValue" class="form-label">Current Value</label>
+                                        <InputTextArea id="currentValue" class="form-control" rows="2" @bind-Value="_correctionModel.CurrentValue"
+                                            placeholder="Current value in the submission (optional)" />
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="proposedValue" class="form-label">Proposed Value <span class="text-danger">*</span></label>
+                                        <InputTextArea id="proposedValue" class="form-control" rows="2" @bind-Value="_correctionModel.ProposedValue"
+                                            placeholder="What the value should be" />
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="justification" class="form-label">Justification <span class="text-danger">*</span></label>
+                                    <InputTextArea id="justification" class="form-control" rows="3" @bind-Value="_correctionModel.Justification"
+                                        placeholder="Why is this correction needed? Provide supporting evidence." />
+                                </div>
+
+                                <div class="d-flex justify-content-end gap-2">
+                                    <button type="button" class="btn btn-outline-secondary" @onclick="HideCorrectionForm">Cancel</button>
+                                    <button type="submit" class="btn btn-primary" disabled="@_isSubmittingCorrection">
+                                        @if (_isSubmittingCorrection)
+                                        {
+                                            <span class="spinner-border spinner-border-sm me-1"></span>
+                                        }
+                                        Submit Correction
+                                    </button>
+                                </div>
+                            </EditForm>
+                        </div>
+                    </div>
+                }
+
+                @if (_corrections.Count == 0 && !_showCorrectionForm)
+                {
+                    <div class="alert alert-info">
+                        <p class="mb-0">No data corrections have been requested for this submission.
+                            <button class="btn btn-sm btn-link p-0 ms-1" @onclick="ShowCorrectionForm">Submit one now</button>.
+                        </p>
+                    </div>
+                }
+                else if (_corrections.Count > 0)
                 {
                     <div class="card">
                         <div class="table-responsive">
@@ -568,6 +656,13 @@ else
     private IReadOnlyList<DataCorrectionDto> _corrections = [];
     private string _activeTab = "insured";
 
+    // Correction form state
+    private bool _showCorrectionForm;
+    private bool _isSubmittingCorrection;
+    private string? _correctionSuccess;
+    private string? _correctionError;
+    private CorrectionFormModel _correctionModel = new();
+
     protected override async Task OnInitializedAsync()
     {
         await LoadDataAsync();
@@ -600,6 +695,66 @@ else
     private void SetActiveTab(string tab)
     {
         _activeTab = tab;
+    }
+
+    private void ShowCorrectionForm()
+    {
+        _correctionModel = new CorrectionFormModel();
+        _correctionError = null;
+        _correctionSuccess = null;
+        _showCorrectionForm = true;
+    }
+
+    private void HideCorrectionForm()
+    {
+        _showCorrectionForm = false;
+    }
+
+    private async Task SubmitCorrection()
+    {
+        if (string.IsNullOrWhiteSpace(_correctionModel.FieldName) ||
+            string.IsNullOrWhiteSpace(_correctionModel.ProposedValue) ||
+            string.IsNullOrWhiteSpace(_correctionModel.Justification))
+        {
+            _correctionError = "Please fill in all required fields.";
+            return;
+        }
+
+        _isSubmittingCorrection = true;
+        _correctionError = null;
+
+        try
+        {
+            var command = new CreateDataCorrectionCommand(
+                Id,
+                _correctionModel.Type,
+                _correctionModel.FieldName,
+                _correctionModel.CurrentValue,
+                _correctionModel.ProposedValue,
+                _correctionModel.Justification);
+
+            var result = await Mediator.Send(command);
+
+            if (result.IsSuccess)
+            {
+                _correctionSuccess = "Data correction submitted successfully. It will be reviewed by the underwriter.";
+                _showCorrectionForm = false;
+                _corrections = await Mediator.Send(new GetDataCorrectionsQuery(Id));
+            }
+            else
+            {
+                _correctionError = result.Error.Description;
+            }
+        }
+        catch (Exception ex)
+        {
+            _correctionError = "An unexpected error occurred. Please try again.";
+            Console.WriteLine(ex);
+        }
+        finally
+        {
+            _isSubmittingCorrection = false;
+        }
     }
 
     private static string FormatCurrency(decimal? value) =>
@@ -645,4 +800,13 @@ else
         "Applied" => "bg-primary",
         _ => "bg-secondary"
     };
+
+    private class CorrectionFormModel
+    {
+        public DataCorrectionType Type { get; set; } = DataCorrectionType.InsuredInformation;
+        public string FieldName { get; set; } = string.Empty;
+        public string? CurrentValue { get; set; }
+        public string ProposedValue { get; set; } = string.Empty;
+        public string Justification { get; set; } = string.Empty;
+    }
 }
