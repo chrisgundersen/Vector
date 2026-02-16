@@ -9,11 +9,13 @@ namespace Vector.Web.UITests.Infrastructure;
 /// <summary>
 /// Fixture that starts both the API and Underwriting Dashboard for E2E testing.
 /// Uses actual process hosting for realistic testing.
+/// Pre-builds projects to avoid compilation timeouts during server startup.
 /// </summary>
 public class TestServerFixture : IAsyncLifetime
 {
     private Process? _apiProcess;
     private Process? _dashboardProcess;
+    private string? _tempDbPath;
 
     public string ApiBaseUrl { get; private set; } = null!;
     public string DashboardBaseUrl { get; private set; } = null!;
@@ -25,6 +27,9 @@ public class TestServerFixture : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
+        // Create a temporary SQLite database file for test isolation
+        _tempDbPath = Path.Combine(Path.GetTempPath(), $"vector_uitest_{Guid.NewGuid():N}.db");
+
         // Find available ports
         var apiPort = GetAvailablePort();
         var dashboardPort = GetAvailablePort();
@@ -32,21 +37,30 @@ public class TestServerFixture : IAsyncLifetime
         ApiBaseUrl = $"http://localhost:{apiPort}";
         DashboardBaseUrl = $"http://localhost:{dashboardPort}";
 
-        // Start the API
+        // Pre-build both projects to avoid compilation during startup
+        Console.WriteLine("[Build] Building API and Dashboard projects...");
+        await BuildProjectAsync(Path.Combine(SolutionRoot, "src", "Vector.Api"));
+        await BuildProjectAsync(Path.Combine(SolutionRoot, "src", "Vector.Web.Underwriting"));
+        Console.WriteLine("[Build] Build complete");
+
+        // Start the API with --no-build (already compiled above)
         _apiProcess = StartProcess(
             Path.Combine(SolutionRoot, "src", "Vector.Api"),
             apiPort,
-            "Vector.Api");
+            "Vector.Api",
+            seedDatabase: true);
 
-        // Start the Dashboard
+        // Start the Dashboard with --no-build
         _dashboardProcess = StartProcess(
             Path.Combine(SolutionRoot, "src", "Vector.Web.Underwriting"),
             dashboardPort,
-            "Vector.Web.Underwriting");
+            "Vector.Web.Underwriting",
+            seedDatabase: false);
 
-        // Wait for both servers to be ready
-        await WaitForServerAsync(ApiBaseUrl, "API");
-        await WaitForServerAsync(DashboardBaseUrl, "Dashboard");
+        // Wait for both servers to be ready (with generous timeout)
+        await Task.WhenAll(
+            WaitForServerAsync(ApiBaseUrl, "API"),
+            WaitForServerAsync(DashboardBaseUrl, "Dashboard"));
 
         // Initialize Playwright
         Playwright = await Microsoft.Playwright.Playwright.CreateAsync();
@@ -67,6 +81,19 @@ public class TestServerFixture : IAsyncLifetime
 
         StopProcess(_apiProcess, "API");
         StopProcess(_dashboardProcess, "Dashboard");
+
+        // Clean up temporary database file
+        if (_tempDbPath is not null && File.Exists(_tempDbPath))
+        {
+            try
+            {
+                File.Delete(_tempDbPath);
+            }
+            catch
+            {
+                // Best effort cleanup
+            }
+        }
     }
 
     public async Task<IPage> CreatePageAsync()
@@ -75,12 +102,42 @@ public class TestServerFixture : IAsyncLifetime
         return await context.NewPageAsync();
     }
 
-    private static Process StartProcess(string projectPath, int port, string name)
+    private static async Task BuildProjectAsync(string projectPath)
     {
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"run --launch-profile Local --urls http://localhost:{port}",
+            Arguments = "build --configuration Debug --no-restore -v q",
+            WorkingDirectory = projectPath,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true
+        };
+
+        var process = new Process { StartInfo = startInfo };
+        process.Start();
+
+        // Capture output for debugging
+        var output = await process.StandardOutput.ReadToEndAsync();
+        var error = await process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync();
+
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException(
+                $"Failed to build project at {projectPath}.\nOutput: {output}\nError: {error}");
+        }
+    }
+
+    private Process StartProcess(string projectPath, int port, string name, bool seedDatabase)
+    {
+        // Use --no-build since we pre-built above. Don't use --launch-profile
+        // to avoid URL conflicts; set all config via environment variables.
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "dotnet",
+            Arguments = $"run --no-build --no-launch-profile",
             WorkingDirectory = projectPath,
             UseShellExecute = false,
             RedirectStandardOutput = true,
@@ -89,7 +146,11 @@ public class TestServerFixture : IAsyncLifetime
             Environment =
             {
                 ["ASPNETCORE_ENVIRONMENT"] = "Local",
-                ["ASPNETCORE_URLS"] = $"http://localhost:{port}"
+                ["ASPNETCORE_URLS"] = $"http://localhost:{port}",
+                ["ConnectionStrings__Sqlite"] = $"Data Source={_tempDbPath}",
+                ["UseMockServices"] = "true",
+                ["SeedDatabase"] = seedDatabase ? "true" : "false",
+                ["Authentication__DisableAuthentication"] = "true"
             }
         };
 
@@ -135,9 +196,12 @@ public class TestServerFixture : IAsyncLifetime
         }
     }
 
-    private static async Task WaitForServerAsync(string baseUrl, string name, int timeoutSeconds = 60)
+    private static async Task WaitForServerAsync(string baseUrl, string name, int timeoutSeconds = 120)
     {
-        using var client = new HttpClient();
+        using var client = new HttpClient(new HttpClientHandler
+        {
+            AllowAutoRedirect = false
+        });
         var stopwatch = Stopwatch.StartNew();
 
         while (stopwatch.Elapsed.TotalSeconds < timeoutSeconds)
@@ -145,9 +209,11 @@ public class TestServerFixture : IAsyncLifetime
             try
             {
                 var response = await client.GetAsync(baseUrl);
-                if (response.IsSuccessStatusCode || response.StatusCode == HttpStatusCode.NotFound)
+                // Accept any response as "server is up" - success, redirects, or not found
+                var status = (int)response.StatusCode;
+                if (status is >= 200 and < 500)
                 {
-                    Console.WriteLine($"[{name}] Server ready at {baseUrl}");
+                    Console.WriteLine($"[{name}] Server ready at {baseUrl} (status: {response.StatusCode})");
                     return;
                 }
             }
