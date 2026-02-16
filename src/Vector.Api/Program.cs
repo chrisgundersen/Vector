@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -25,6 +26,17 @@ try
         .ReadFrom.Services(services)
         .Enrich.FromLogContext()
         .WriteTo.Console());
+
+    // Configure authentication
+    var disableAuthentication = builder.Configuration.GetValue<bool>("Authentication:DisableAuthentication");
+    if (disableAuthentication)
+    {
+        builder.Services.AddAuthentication(DevAuthenticationHandler.SchemeName)
+            .AddScheme<AuthenticationSchemeOptions, DevAuthenticationHandler>(
+                DevAuthenticationHandler.SchemeName, null);
+    }
+
+    builder.Services.AddAuthorizationBuilder();
 
     // Add services
     builder.Services.AddApplication();

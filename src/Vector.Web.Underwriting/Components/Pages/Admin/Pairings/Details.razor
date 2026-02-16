@@ -1,5 +1,5 @@
 @page "/admin/pairings/{Id:guid}"
-@attribute [Authorize]
+@attribute [Authorize(Roles = "Admin")]
 @using MediatR
 @using Vector.Application.Routing.Commands
 @using Vector.Application.Routing.DTOs

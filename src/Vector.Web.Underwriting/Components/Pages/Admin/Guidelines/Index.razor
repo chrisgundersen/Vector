@@ -1,5 +1,5 @@
 @page "/admin/guidelines"
-@attribute [Authorize]
+@attribute [Authorize(Roles = "Admin")]
 @using MediatR
 @using Vector.Application.UnderwritingGuidelines.DTOs
 @using Vector.Application.UnderwritingGuidelines.Queries

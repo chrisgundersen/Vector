@@ -1,5 +1,5 @@
 @page "/admin/guidelines/{Id:guid}/edit"
-@attribute [Authorize]
+@attribute [Authorize(Roles = "Admin")]
 @using MediatR
 @using Microsoft.Extensions.Logging
 @using Vector.Application.UnderwritingGuidelines.Commands

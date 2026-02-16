@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Vector.Application.UnderwritingGuidelines.Commands;
 using Vector.Application.UnderwritingGuidelines.DTOs;
@@ -11,6 +12,7 @@ namespace Vector.Api.Controllers.v1;
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/[controller]")]
+[Authorize(Roles = "Admin")]
 public class GuidelinesController(IMediator mediator) : ControllerBase
 {
     /// <summary>

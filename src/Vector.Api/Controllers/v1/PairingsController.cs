@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Vector.Application.Routing.Commands;
 using Vector.Application.Routing.DTOs;
@@ -10,6 +11,7 @@ namespace Vector.Api.Controllers.v1;
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/[controller]")]
+[Authorize(Roles = "Admin")]
 public class PairingsController(IMediator mediator) : ControllerBase
 {
     /// <summary>
