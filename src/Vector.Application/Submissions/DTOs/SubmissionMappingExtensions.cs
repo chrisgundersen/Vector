@@ -26,7 +26,23 @@ public static class SubmissionMappingExtensions
             submission.Coverages.Select(c => c.ToDto()).ToList(),
             submission.Locations.Select(l => l.ToDto()).ToList(),
             submission.LossHistory.Select(l => l.ToDto()).ToList(),
-            submission.TotalIncurredLosses?.Amount);
+            submission.TotalIncurredLosses?.Amount,
+            submission.ClearanceStatus.ToString(),
+            submission.ClearanceCheckedAt,
+            submission.ClearanceMatches.Select(m => m.ToDto()).ToList(),
+            submission.ClearanceOverrideReason);
+    }
+
+    public static ClearanceMatchDto ToDto(this ClearanceMatch match)
+    {
+        return new ClearanceMatchDto(
+            match.Id,
+            match.MatchedSubmissionId,
+            match.MatchedSubmissionNumber,
+            match.MatchType.ToString(),
+            match.ConfidenceScore,
+            match.MatchDetails,
+            match.DetectedAt);
     }
 
     public static InsuredPartyDto ToDto(this InsuredParty insured)

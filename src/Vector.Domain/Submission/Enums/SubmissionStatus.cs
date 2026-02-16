@@ -13,5 +13,6 @@ public enum SubmissionStatus
     Declined = 5,
     Bound = 6,
     Withdrawn = 7,
-    Expired = 8
+    Expired = 8,
+    PendingClearance = 9
 }

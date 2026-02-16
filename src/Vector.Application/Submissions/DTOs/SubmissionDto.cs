@@ -18,7 +18,11 @@ public sealed record SubmissionDto(
     IReadOnlyList<CoverageDto> Coverages,
     IReadOnlyList<ExposureLocationDto> Locations,
     IReadOnlyList<LossHistoryDto> Losses,
-    decimal? TotalIncurredLosses);
+    decimal? TotalIncurredLosses,
+    string ClearanceStatus,
+    DateTime? ClearanceCheckedAt,
+    IReadOnlyList<ClearanceMatchDto> ClearanceMatches,
+    string? ClearanceOverrideReason);
 
 public sealed record InsuredPartyDto(
     Guid Id,

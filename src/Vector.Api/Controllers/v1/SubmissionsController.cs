@@ -273,6 +273,118 @@ public class SubmissionsController(IMediator mediator, ILogger<SubmissionsContro
     }
 
     /// <summary>
+    /// Gets submissions pending clearance review.
+    /// </summary>
+    [HttpGet("clearance-queue")]
+    [ProducesResponseType(typeof(IReadOnlyList<SubmissionSummaryDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetClearanceQueue(
+        [FromQuery] int limit = 50,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await mediator.Send(new GetClearanceQueueQuery(limit), cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Overrides a failed clearance check on a submission.
+    /// </summary>
+    [HttpPost("{id:guid}/override-clearance")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> OverrideClearance(Guid id, [FromBody] OverrideClearanceRequest request, CancellationToken cancellationToken)
+    {
+        var command = new OverrideClearanceCommand(id, request.Reason, request.OverriddenByUserId);
+
+        var result = await mediator.Send(command, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            if (result.Error.Code == "Submission.NotFound")
+            {
+                return NotFound();
+            }
+
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Failed to override clearance",
+                Detail = result.Error.Description,
+                Status = StatusCodes.Status400BadRequest
+            });
+        }
+
+        logger.LogInformation("Clearance overridden for submission {SubmissionId}", id);
+
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Withdraws a submission.
+    /// </summary>
+    [HttpPost("{id:guid}/withdraw")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Withdraw(Guid id, [FromBody] WithdrawSubmissionRequest request, CancellationToken cancellationToken)
+    {
+        var command = new WithdrawSubmissionCommand(id, request.Reason);
+
+        var result = await mediator.Send(command, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            if (result.Error.Code == "Submission.NotFound")
+            {
+                return NotFound();
+            }
+
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Failed to withdraw submission",
+                Detail = result.Error.Description,
+                Status = StatusCodes.Status400BadRequest
+            });
+        }
+
+        logger.LogInformation("Withdrawn submission {SubmissionId} with reason: {Reason}", id, request.Reason);
+
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Expires a submission.
+    /// </summary>
+    [HttpPost("{id:guid}/expire")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Expire(Guid id, [FromBody] ExpireSubmissionRequest request, CancellationToken cancellationToken)
+    {
+        var command = new ExpireSubmissionCommand(id, request.Reason);
+
+        var result = await mediator.Send(command, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            if (result.Error.Code == "Submission.NotFound")
+            {
+                return NotFound();
+            }
+
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Failed to expire submission",
+                Detail = result.Error.Description,
+                Status = StatusCodes.Status400BadRequest
+            });
+        }
+
+        logger.LogInformation("Expired submission {SubmissionId} with reason: {Reason}", id, request.Reason);
+
+        return NoContent();
+    }
+
+    /// <summary>
     /// Gets data correction requests for a submission.
     /// </summary>
     [HttpGet("{id:guid}/corrections")]
@@ -352,3 +464,13 @@ public record DeclineSubmissionRequest(
 
 public record RequestInfoRequest(
     string Message);
+
+public record OverrideClearanceRequest(
+    string Reason,
+    Guid OverriddenByUserId);
+
+public record WithdrawSubmissionRequest(
+    string? Reason);
+
+public record ExpireSubmissionRequest(
+    string? Reason);

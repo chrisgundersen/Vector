@@ -100,6 +100,23 @@ public class SubmissionRepository(VectorDbContext context) : ISubmissionReposito
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<Submission>> FindPotentialDuplicatesAsync(
+        Guid tenantId,
+        Guid excludeSubmissionId,
+        CancellationToken cancellationToken = default)
+    {
+        return await context.Submissions
+            .IgnoreQueryFilters()
+            .Where(s => s.TenantId == tenantId
+                && s.Id != excludeSubmissionId
+                && s.Status != SubmissionStatus.Declined
+                && s.Status != SubmissionStatus.Withdrawn
+                && s.Status != SubmissionStatus.Expired
+                && s.Insured != null)
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<string> GenerateSubmissionNumberAsync(
         Guid tenantId,
         CancellationToken cancellationToken = default)

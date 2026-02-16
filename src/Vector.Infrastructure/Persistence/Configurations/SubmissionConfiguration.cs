@@ -61,6 +61,19 @@ public class SubmissionConfiguration : IEntityTypeConfiguration<Submission>
                 .HasMaxLength(3);
         });
 
+        // Clearance
+        builder.Property(s => s.ClearanceStatus)
+            .HasConversion<string>()
+            .HasMaxLength(50);
+
+        builder.Property(s => s.ClearanceCheckedAt);
+
+        builder.Property(s => s.ClearanceOverrideReason)
+            .HasMaxLength(1000);
+
+        builder.Property(s => s.ClearanceOverriddenByUserId);
+        builder.Property(s => s.ClearanceOverriddenAt);
+
         // Audit properties
         builder.Property(s => s.CreatedAt);
         builder.Property(s => s.CreatedBy).HasMaxLength(256);
@@ -288,6 +301,39 @@ public class SubmissionConfiguration : IEntityTypeConfiguration<Submission>
             loss.Property(l => l.IsSubrogation);
         });
 
+        // Clearance Matches
+        builder.OwnsMany(s => s.ClearanceMatches, match =>
+        {
+            match.ToTable("ClearanceMatches", t => t.IsTemporal());
+            match.WithOwner().HasForeignKey("SubmissionId");
+            match.HasKey(m => m.Id);
+            match.Property(m => m.Id).ValueGeneratedNever();
+
+            match.Property(m => m.SubmissionId);
+
+            match.Property(m => m.MatchedSubmissionId);
+
+            match.Property(m => m.MatchedSubmissionNumber)
+                .HasMaxLength(50)
+                .IsRequired();
+
+            match.Property(m => m.MatchType)
+                .HasConversion<string>()
+                .HasMaxLength(50)
+                .IsRequired();
+
+            match.Property(m => m.ConfidenceScore)
+                .HasPrecision(5, 4);
+
+            match.Property(m => m.MatchDetails)
+                .HasMaxLength(2000);
+
+            match.Property(m => m.DetectedAt);
+
+            match.HasIndex("SubmissionId");
+            match.HasIndex(m => m.MatchedSubmissionId);
+        });
+
         // Indexes
         builder.HasIndex(s => s.TenantId);
         builder.HasIndex(s => new { s.TenantId, s.SubmissionNumber }).IsUnique();
@@ -296,5 +342,6 @@ public class SubmissionConfiguration : IEntityTypeConfiguration<Submission>
         builder.HasIndex(s => s.AssignedUnderwriterId);
         builder.HasIndex(s => s.ProducerId);
         builder.HasIndex(s => s.ReceivedAt);
+        builder.HasIndex(s => s.ClearanceStatus);
     }
 }

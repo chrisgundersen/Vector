@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using Vector.Domain.Common;
 using Vector.Domain.Submission;
+using Vector.Domain.Submission.Services;
 
 namespace Vector.Application.Submissions.Commands;
 
@@ -10,6 +11,7 @@ namespace Vector.Application.Submissions.Commands;
 /// </summary>
 public sealed class CreateSubmissionCommandHandler(
     ISubmissionRepository submissionRepository,
+    IClearanceCheckService clearanceCheckService,
     ILogger<CreateSubmissionCommandHandler> logger) : IRequestHandler<CreateSubmissionCommand, Result<Guid>>
 {
     public async Task<Result<Guid>> Handle(
@@ -35,11 +37,23 @@ public sealed class CreateSubmissionCommandHandler(
         var submission = submissionResult.Value;
         submission.MarkAsReceived();
 
+        try
+        {
+            var matches = await clearanceCheckService.CheckAsync(submission, cancellationToken);
+            submission.CompleteClearance(matches);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Clearance check failed for submission {SubmissionNumber}. Submission will require manual review",
+                submissionNumber);
+            submission.CompleteClearance([]);
+        }
+
         await submissionRepository.AddAsync(submission, cancellationToken);
 
         logger.LogInformation(
-            "Created submission {SubmissionNumber} for {InsuredName} in tenant {TenantId}",
-            submissionNumber, request.InsuredName, request.TenantId);
+            "Created submission {SubmissionNumber} for {InsuredName} in tenant {TenantId} with clearance status {ClearanceStatus}",
+            submissionNumber, request.InsuredName, request.TenantId, submission.ClearanceStatus);
 
         return Result.Success(submission.Id);
     }

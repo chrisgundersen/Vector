@@ -2,35 +2,31 @@ using MediatR;
 using Vector.Application.Common.Interfaces;
 using Vector.Application.Submissions.DTOs;
 using Vector.Domain.Submission;
+using Vector.Domain.Submission.Enums;
 
 namespace Vector.Application.Submissions.Queries;
 
 /// <summary>
-/// Handler for retrieving producer submissions with filtering and pagination.
+/// Handler for retrieving the clearance review queue.
 /// </summary>
-public sealed class GetProducerSubmissionsQueryHandler(
+public sealed class GetClearanceQueueQueryHandler(
     ISubmissionRepository submissionRepository,
-    ICurrentUserService currentUserService) : IRequestHandler<GetProducerSubmissionsQuery, ProducerSubmissionsResult>
+    ICurrentUserService currentUserService) : IRequestHandler<GetClearanceQueueQuery, IReadOnlyList<SubmissionSummaryDto>>
 {
-    public async Task<ProducerSubmissionsResult> Handle(
-        GetProducerSubmissionsQuery request,
+    public async Task<IReadOnlyList<SubmissionSummaryDto>> Handle(
+        GetClearanceQueueQuery request,
         CancellationToken cancellationToken)
     {
         var tenantId = currentUserService.TenantId
             ?? throw new InvalidOperationException("Tenant ID is required");
 
-        var (submissions, totalCount) = await submissionRepository.SearchAsync(
+        var submissions = await submissionRepository.GetByStatusAsync(
             tenantId,
-            request.ProducerId,
-            request.Status,
-            request.SearchTerm,
-            request.Page,
-            request.PageSize,
+            SubmissionStatus.PendingClearance,
+            request.Limit,
             cancellationToken);
 
-        var totalPages = (int)Math.Ceiling(totalCount / (double)request.PageSize);
-
-        var summaries = submissions.Select(s => new SubmissionSummaryDto(
+        return submissions.Select(s => new SubmissionSummaryDto(
             s.Id,
             s.SubmissionNumber,
             s.Insured.Name,
@@ -45,12 +41,5 @@ public sealed class GetProducerSubmissionsQueryHandler(
             s.Locations.Count,
             s.Locations.Sum(l => l.TotalInsuredValue.Amount),
             s.ClearanceStatus.ToString())).ToList();
-
-        return new ProducerSubmissionsResult(
-            summaries,
-            totalCount,
-            request.Page,
-            request.PageSize,
-            totalPages);
     }
 }

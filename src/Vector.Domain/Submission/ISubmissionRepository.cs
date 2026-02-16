@@ -40,6 +40,12 @@ public interface ISubmissionRepository : IRepository<Aggregates.Submission>
     Task<string> GenerateSubmissionNumberAsync(Guid tenantId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Finds potential duplicate submissions within a tenant for clearance checking.
+    /// </summary>
+    Task<IReadOnlyList<Aggregates.Submission>> FindPotentialDuplicatesAsync(
+        Guid tenantId, Guid excludeSubmissionId, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Searches submissions with filtering and pagination.
     /// </summary>
     Task<(IReadOnlyList<Aggregates.Submission> Submissions, int TotalCount)> SearchAsync(

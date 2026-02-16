@@ -51,6 +51,15 @@ else
                 </div>
             </div>
             <div class="d-flex gap-2">
+                @if (_submission.Status == "PendingClearance")
+                {
+                    <button class="btn btn-warning" @onclick="ShowOverrideClearanceModal" disabled="@_processing">
+                        <i class="bi bi-shield-check me-1"></i>Override Clearance
+                    </button>
+                    <button class="btn btn-danger" @onclick="DeclineSubmission" disabled="@_processing">
+                        <i class="bi bi-x-circle me-1"></i>Decline
+                    </button>
+                }
                 @if (_submission.Status == "Received" || _submission.Status == "Scored")
                 {
                     <button class="btn btn-outline-primary" @onclick="AssignToMe">
@@ -67,7 +76,7 @@ else
                         <i class="bi bi-check2-all me-1"></i>Bind Policy
                     </button>
                 }
-                @if (_submission.Status != "Quoted" && _submission.Status != "Declined" && _submission.Status != "Bound")
+                @if (_submission.Status is not ("Quoted" or "Declined" or "Bound" or "Withdrawn" or "Expired" or "PendingClearance"))
                 {
                     <button class="btn btn-outline-warning" @onclick="RequestInformation" disabled="@_processing">
                         <i class="bi bi-question-circle me-1"></i>Request Info
@@ -77,6 +86,18 @@ else
                     </button>
                     <button class="btn btn-success" @onclick="QuoteSubmission" disabled="@_processing">
                         <i class="bi bi-check-circle me-1"></i>Quote
+                    </button>
+                }
+                @if (_submission.Status is not ("Bound" or "Withdrawn" or "Expired" or "Declined" or "Draft"))
+                {
+                    <button class="btn btn-outline-secondary" @onclick="ShowWithdrawModal" disabled="@_processing">
+                        <i class="bi bi-arrow-return-left me-1"></i>Withdraw
+                    </button>
+                }
+                @if (_submission.Status is not ("Bound" or "Withdrawn" or "Expired" or "Declined" or "Draft"))
+                {
+                    <button class="btn btn-outline-dark" @onclick="ShowExpireModal" disabled="@_processing">
+                        <i class="bi bi-clock-history me-1"></i>Expire
                     </button>
                 }
             </div>
@@ -394,6 +415,72 @@ else
                     </div>
                 </div>
 
+                @if (_submission.ClearanceStatus != "NotChecked")
+                {
+                    <div class="card mb-4 @(_submission.ClearanceStatus == "Failed" ? "border-warning" : _submission.ClearanceStatus == "Passed" ? "border-success" : "border-info")">
+                        <div class="card-header @(_submission.ClearanceStatus == "Failed" ? "bg-warning text-dark" : _submission.ClearanceStatus == "Passed" ? "bg-success text-white" : "bg-info text-white")">
+                            <h5 class="mb-0">
+                                @if (_submission.ClearanceStatus == "Passed")
+                                {
+                                    <i class="bi bi-shield-check me-1"></i>
+                                }
+                                else if (_submission.ClearanceStatus == "Failed")
+                                {
+                                    <i class="bi bi-shield-exclamation me-1"></i>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-shield-fill-check me-1"></i>
+                                }
+                                Clearance: @_submission.ClearanceStatus
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            @if (_submission.ClearanceCheckedAt.HasValue)
+                            {
+                                <dl>
+                                    <dt>Checked At</dt>
+                                    <dd>@_submission.ClearanceCheckedAt.Value.ToString("g")</dd>
+                                </dl>
+                            }
+
+                            @if (_submission.ClearanceOverrideReason is not null)
+                            {
+                                <dl>
+                                    <dt>Override Reason</dt>
+                                    <dd>@_submission.ClearanceOverrideReason</dd>
+                                </dl>
+                            }
+
+                            @if (_submission.ClearanceMatches.Count > 0)
+                            {
+                                <h6 class="mt-3">Matches (@_submission.ClearanceMatches.Count)</h6>
+                                <div class="list-group list-group-flush">
+                                    @foreach (var match in _submission.ClearanceMatches)
+                                    {
+                                        <div class="list-group-item px-0">
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <div>
+                                                    <a href="submissions/@match.MatchedSubmissionId" class="fw-bold text-decoration-none">
+                                                        @match.MatchedSubmissionNumber
+                                                    </a>
+                                                    <br />
+                                                    <small class="text-muted">@match.MatchDetails</small>
+                                                </div>
+                                                <div class="text-end">
+                                                    <span class="badge bg-secondary">@match.MatchType</span>
+                                                    <br />
+                                                    <small class="text-muted">@match.ConfidenceScore.ToString("P0")</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+
                 <div class="card mb-4">
                     <div class="card-header">
                         <h5 class="mb-0">Submission Details</h5>
@@ -583,6 +670,117 @@ else
     </div>
 }
 
+@* Override Clearance Modal *@
+@if (_showOverrideClearanceModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Override Clearance</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModals" disabled="@_processing"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="overrideReason" class="form-label">Reason for Override</label>
+                        <textarea class="form-control" id="overrideReason" rows="4" @bind="_overrideClearanceReason"
+                                  placeholder="Explain why this clearance failure should be overridden..."
+                                  disabled="@_processing"></textarea>
+                    </div>
+                    <div class="alert alert-warning small mb-0">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        This will return the submission to Received status for normal underwriting workflow.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModals" disabled="@_processing">Cancel</button>
+                    <button type="button" class="btn btn-warning" @onclick="SubmitOverrideClearance" disabled="@_processing">
+                        @if (_processing)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                        }
+                        Override Clearance
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* Withdraw Modal *@
+@if (_showWithdrawModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Withdraw Submission</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModals" disabled="@_processing"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="withdrawReason" class="form-label">Reason (optional)</label>
+                        <textarea class="form-control" id="withdrawReason" rows="3" @bind="_withdrawReason"
+                                  placeholder="Enter a reason for withdrawing this submission..."
+                                  disabled="@_processing"></textarea>
+                    </div>
+                    <div class="alert alert-warning small mb-0">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        This action cannot be undone. The submission will be removed from active processing.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModals" disabled="@_processing">Cancel</button>
+                    <button type="button" class="btn btn-outline-secondary" @onclick="SubmitWithdraw" disabled="@_processing">
+                        @if (_processing)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                        }
+                        Withdraw
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* Expire Modal *@
+@if (_showExpireModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Expire Submission</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModals" disabled="@_processing"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="expireReason" class="form-label">Reason (optional)</label>
+                        <textarea class="form-control" id="expireReason" rows="3" @bind="_expireReason"
+                                  placeholder="Enter a reason for expiring this submission..."
+                                  disabled="@_processing"></textarea>
+                    </div>
+                    <div class="alert alert-info small mb-0">
+                        <i class="bi bi-info-circle me-1"></i>
+                        This will mark the submission as expired. Use for submissions that have passed their expiration date.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModals" disabled="@_processing">Cancel</button>
+                    <button type="button" class="btn btn-outline-dark" @onclick="SubmitExpire" disabled="@_processing">
+                        @if (_processing)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                        }
+                        Expire
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     [Parameter]
     public Guid Id { get; set; }
@@ -597,12 +795,18 @@ else
     private bool _showQuoteModal = false;
     private bool _showDeclineModal = false;
     private bool _showRequestInfoModal = false;
+    private bool _showOverrideClearanceModal = false;
+    private bool _showWithdrawModal = false;
+    private bool _showExpireModal = false;
 
     // Form data
     private decimal _quotePremium = 0;
     private string _quoteCurrency = "USD";
     private string _declineReason = "";
     private string _requestInfoMessage = "";
+    private string _overrideClearanceReason = "";
+    private string _withdrawReason = "";
+    private string _expireReason = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -889,7 +1093,126 @@ else
         _showQuoteModal = false;
         _showDeclineModal = false;
         _showRequestInfoModal = false;
+        _showOverrideClearanceModal = false;
+        _showWithdrawModal = false;
+        _showExpireModal = false;
         _errorMessage = null;
+    }
+
+    private void ShowOverrideClearanceModal()
+    {
+        _overrideClearanceReason = "";
+        _showOverrideClearanceModal = true;
+    }
+
+    private async Task SubmitOverrideClearance()
+    {
+        if (string.IsNullOrWhiteSpace(_overrideClearanceReason))
+        {
+            _errorMessage = "Please enter a reason for overriding clearance.";
+            return;
+        }
+
+        _processing = true;
+        _errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var result = await Mediator.Send(new OverrideClearanceCommand(Id, _overrideClearanceReason, Guid.NewGuid()));
+            if (result.IsSuccess)
+            {
+                _showOverrideClearanceModal = false;
+                await LoadSubmissionAsync();
+            }
+            else
+            {
+                _errorMessage = result.Error.Description;
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to override clearance: {ex.Message}";
+        }
+        finally
+        {
+            _processing = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ShowWithdrawModal()
+    {
+        _withdrawReason = "";
+        _showWithdrawModal = true;
+    }
+
+    private async Task SubmitWithdraw()
+    {
+        _processing = true;
+        _errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var reason = string.IsNullOrWhiteSpace(_withdrawReason) ? null : _withdrawReason;
+            var result = await Mediator.Send(new WithdrawSubmissionCommand(Id, reason));
+            if (result.IsSuccess)
+            {
+                _showWithdrawModal = false;
+                await LoadSubmissionAsync();
+            }
+            else
+            {
+                _errorMessage = result.Error.Description;
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to withdraw submission: {ex.Message}";
+        }
+        finally
+        {
+            _processing = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ShowExpireModal()
+    {
+        _expireReason = "";
+        _showExpireModal = true;
+    }
+
+    private async Task SubmitExpire()
+    {
+        _processing = true;
+        _errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var reason = string.IsNullOrWhiteSpace(_expireReason) ? null : _expireReason;
+            var result = await Mediator.Send(new ExpireSubmissionCommand(Id, reason));
+            if (result.IsSuccess)
+            {
+                _showExpireModal = false;
+                await LoadSubmissionAsync();
+            }
+            else
+            {
+                _errorMessage = result.Error.Description;
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to expire submission: {ex.Message}";
+        }
+        finally
+        {
+            _processing = false;
+            StateHasChanged();
+        }
     }
 
     private static string FormatCurrency(decimal? value) =>
@@ -899,6 +1222,8 @@ else
     {
         "UnderReview" => "Under Review",
         "InformationRequested" => "Info Requested",
+        "PendingClearance" => "Pending Clearance",
+        "PendingInformation" => "Pending Information",
         _ => status
     };
 
@@ -906,11 +1231,14 @@ else
     {
         "Received" => "bg-info",
         "Scored" => "bg-primary",
-        "UnderReview" => "bg-warning text-dark",
+        "UnderReview" or "InReview" => "bg-warning text-dark",
         "Quoted" => "bg-success",
         "Declined" => "bg-danger",
         "Bound" => "bg-dark",
-        "InformationRequested" => "bg-secondary",
+        "InformationRequested" or "PendingInformation" => "bg-secondary",
+        "PendingClearance" => "bg-warning text-dark",
+        "Withdrawn" => "bg-secondary",
+        "Expired" => "bg-dark",
         _ => "bg-light text-dark"
     };
 

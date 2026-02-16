@@ -55,3 +55,36 @@ public sealed class SubmissionAssignedNotificationHandler(
             evt.UnderwriterName);
     }
 }
+
+/// <summary>
+/// Handles <see cref="ClearanceCompletedEvent"/> by notifying clients via SignalR.
+/// </summary>
+public sealed class ClearanceCompletedNotificationHandler(
+    IHubContext<SubmissionHub> hubContext) : INotificationHandler<DomainEventNotification<ClearanceCompletedEvent>>
+{
+    public async Task Handle(DomainEventNotification<ClearanceCompletedEvent> notification, CancellationToken cancellationToken)
+    {
+        var evt = notification.DomainEvent;
+
+        await hubContext.Clients.All.SendAsync(
+            "ClearanceCompleted",
+            new { evt.SubmissionId, Status = evt.Status.ToString(), evt.MatchCount },
+            cancellationToken);
+    }
+}
+
+/// <summary>
+/// Handles <see cref="ClearanceOverriddenEvent"/> by notifying clients via SignalR.
+/// </summary>
+public sealed class ClearanceOverriddenNotificationHandler(
+    IHubContext<SubmissionHub> hubContext) : INotificationHandler<DomainEventNotification<ClearanceOverriddenEvent>>
+{
+    public async Task Handle(DomainEventNotification<ClearanceOverriddenEvent> notification, CancellationToken cancellationToken)
+    {
+        var evt = notification.DomainEvent;
+
+        await hubContext.NotifySubmissionUpdated(
+            evt.SubmissionId,
+            "Received");
+    }
+}

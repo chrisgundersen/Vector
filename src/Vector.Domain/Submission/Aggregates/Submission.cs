@@ -14,6 +14,7 @@ public sealed class Submission : AuditableAggregateRoot, IMultiTenantEntity
     private readonly List<Coverage> _coverages = [];
     private readonly List<ExposureLocation> _locations = [];
     private readonly List<LossHistory> _lossHistory = [];
+    private readonly List<ClearanceMatch> _clearanceMatches = [];
 
     public Guid TenantId { get; private set; }
     public string SubmissionNumber { get; private set; } = string.Empty;
@@ -44,9 +45,17 @@ public sealed class Submission : AuditableAggregateRoot, IMultiTenantEntity
     public string? DeclineReason { get; private set; }
     public Money? QuotedPremium { get; private set; }
 
+    // Clearance
+    public ClearanceStatus ClearanceStatus { get; private set; } = ClearanceStatus.NotChecked;
+    public DateTime? ClearanceCheckedAt { get; private set; }
+    public string? ClearanceOverrideReason { get; private set; }
+    public Guid? ClearanceOverriddenByUserId { get; private set; }
+    public DateTime? ClearanceOverriddenAt { get; private set; }
+
     public IReadOnlyCollection<Coverage> Coverages => _coverages.AsReadOnly();
     public IReadOnlyCollection<ExposureLocation> Locations => _locations.AsReadOnly();
     public IReadOnlyCollection<LossHistory> LossHistory => _lossHistory.AsReadOnly();
+    public IReadOnlyCollection<ClearanceMatch> ClearanceMatches => _clearanceMatches.AsReadOnly();
 
     private Submission()
     {
@@ -127,7 +136,8 @@ public sealed class Submission : AuditableAggregateRoot, IMultiTenantEntity
 
     public Result AssignToUnderwriter(Guid underwriterId, string underwriterName)
     {
-        if (Status is SubmissionStatus.Declined or SubmissionStatus.Bound or SubmissionStatus.Withdrawn)
+        if (Status is SubmissionStatus.Declined or SubmissionStatus.Bound or SubmissionStatus.Withdrawn
+            or SubmissionStatus.Expired or SubmissionStatus.PendingClearance)
         {
             return Result.Failure(SubmissionErrors.CannotAssignClosedSubmission);
         }
@@ -237,13 +247,112 @@ public sealed class Submission : AuditableAggregateRoot, IMultiTenantEntity
 
     public Result Withdraw(string reason)
     {
-        if (Status is SubmissionStatus.Bound or SubmissionStatus.Withdrawn)
+        if (Status is SubmissionStatus.Bound or SubmissionStatus.Withdrawn or SubmissionStatus.Expired)
         {
             return Result.Failure(SubmissionErrors.InvalidStatusTransition);
         }
 
         var previousStatus = Status;
         Status = SubmissionStatus.Withdrawn;
+
+        AddDomainEvent(new SubmissionStatusChangedEvent(
+            Id,
+            previousStatus,
+            Status,
+            reason));
+
+        return Result.Success();
+    }
+
+    public Result CompleteClearance(IReadOnlyList<ClearanceMatch> matches)
+    {
+        if (Status != SubmissionStatus.Received)
+        {
+            return Result.Failure(SubmissionErrors.InvalidStatusTransition);
+        }
+
+        ClearanceCheckedAt = DateTime.UtcNow;
+
+        foreach (var match in matches)
+        {
+            _clearanceMatches.Add(match);
+        }
+
+        if (matches.Count == 0)
+        {
+            ClearanceStatus = ClearanceStatus.Passed;
+
+            AddDomainEvent(new ClearanceCompletedEvent(
+                Id,
+                ClearanceStatus,
+                0));
+        }
+        else
+        {
+            ClearanceStatus = ClearanceStatus.Failed;
+            var previousStatus = Status;
+            Status = SubmissionStatus.PendingClearance;
+
+            AddDomainEvent(new ClearanceCompletedEvent(
+                Id,
+                ClearanceStatus,
+                matches.Count));
+
+            AddDomainEvent(new SubmissionStatusChangedEvent(
+                Id,
+                previousStatus,
+                Status,
+                $"Clearance check found {matches.Count} potential match(es)"));
+        }
+
+        return Result.Success();
+    }
+
+    public Result OverrideClearance(string reason, Guid userId)
+    {
+        if (Status != SubmissionStatus.PendingClearance)
+        {
+            return Result.Failure(SubmissionErrors.NotPendingClearance);
+        }
+
+        if (ClearanceStatus != ClearanceStatus.Failed)
+        {
+            return Result.Failure(SubmissionErrors.ClearanceNotFailed);
+        }
+
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            return Result.Failure(SubmissionErrors.ClearanceOverrideReasonRequired);
+        }
+
+        ClearanceStatus = ClearanceStatus.Overridden;
+        ClearanceOverrideReason = reason;
+        ClearanceOverriddenByUserId = userId;
+        ClearanceOverriddenAt = DateTime.UtcNow;
+
+        var previousStatus = Status;
+        Status = SubmissionStatus.Received;
+
+        AddDomainEvent(new ClearanceOverriddenEvent(Id, userId, reason));
+        AddDomainEvent(new SubmissionStatusChangedEvent(
+            Id,
+            previousStatus,
+            Status,
+            $"Clearance overridden: {reason}"));
+
+        return Result.Success();
+    }
+
+    public Result Expire(string? reason)
+    {
+        if (Status is SubmissionStatus.Draft or SubmissionStatus.Declined
+            or SubmissionStatus.Bound or SubmissionStatus.Withdrawn or SubmissionStatus.Expired)
+        {
+            return Result.Failure(SubmissionErrors.InvalidStatusTransition);
+        }
+
+        var previousStatus = Status;
+        Status = SubmissionStatus.Expired;
 
         AddDomainEvent(new SubmissionStatusChangedEvent(
             Id,
@@ -382,4 +491,8 @@ public static class SubmissionErrors
     public static readonly Error CannotAssignClosedSubmission = new("Submission.CannotAssignClosedSubmission", "Cannot assign a closed submission.");
     public static readonly Error InvalidStatusTransition = new("Submission.InvalidStatusTransition", "Invalid status transition.");
     public static readonly Error MustBeQuotedToBind = new("Submission.MustBeQuotedToBind", "Submission must be quoted before binding.");
+    public static readonly Error ClearanceCheckFailed = new("Submission.ClearanceCheckFailed", "Clearance check found potential matches.");
+    public static readonly Error ClearanceNotFailed = new("Submission.ClearanceNotFailed", "Cannot override clearance that did not fail.");
+    public static readonly Error NotPendingClearance = new("Submission.NotPendingClearance", "Submission is not pending clearance.");
+    public static readonly Error ClearanceOverrideReasonRequired = new("Submission.ClearanceOverrideReasonRequired", "A reason is required to override clearance.");
 }

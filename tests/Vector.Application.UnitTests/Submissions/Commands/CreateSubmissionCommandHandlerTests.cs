@@ -2,12 +2,16 @@ using Microsoft.Extensions.Logging;
 using Vector.Application.Submissions.Commands;
 using Vector.Domain.Submission;
 using Vector.Domain.Submission.Aggregates;
+using Vector.Domain.Submission.Entities;
+using Vector.Domain.Submission.Enums;
+using Vector.Domain.Submission.Services;
 
 namespace Vector.Application.UnitTests.Submissions.Commands;
 
 public class CreateSubmissionCommandHandlerTests
 {
     private readonly Mock<ISubmissionRepository> _submissionRepositoryMock;
+    private readonly Mock<IClearanceCheckService> _clearanceCheckServiceMock;
     private readonly Mock<ILogger<CreateSubmissionCommandHandler>> _loggerMock;
     private readonly CreateSubmissionCommandHandler _handler;
 
@@ -16,10 +20,17 @@ public class CreateSubmissionCommandHandlerTests
     public CreateSubmissionCommandHandlerTests()
     {
         _submissionRepositoryMock = new Mock<ISubmissionRepository>();
+        _clearanceCheckServiceMock = new Mock<IClearanceCheckService>();
         _loggerMock = new Mock<ILogger<CreateSubmissionCommandHandler>>();
+
+        // Default: clearance passes with no matches
+        _clearanceCheckServiceMock.Setup(x => x.CheckAsync(
+                It.IsAny<Submission>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<ClearanceMatch>());
 
         _handler = new CreateSubmissionCommandHandler(
             _submissionRepositoryMock.Object,
+            _clearanceCheckServiceMock.Object,
             _loggerMock.Object);
     }
 
@@ -202,5 +213,89 @@ public class CreateSubmissionCommandHandlerTests
         result.IsSuccess.Should().BeTrue();
         capturedSubmission.Should().NotBeNull();
         capturedSubmission!.Status.Should().Be(Domain.Submission.Enums.SubmissionStatus.Received);
+    }
+
+    [Fact]
+    public async Task Handle_WhenClearancePasses_SubmissionStaysReceived()
+    {
+        var command = new CreateSubmissionCommand(_tenantId, "Test Insured");
+
+        Submission? capturedSubmission = null;
+
+        _submissionRepositoryMock.Setup(x => x.GenerateSubmissionNumberAsync(
+                _tenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync("SUB-2024-000001");
+
+        _submissionRepositoryMock.Setup(x => x.AddAsync(
+                It.IsAny<Submission>(), It.IsAny<CancellationToken>()))
+            .Callback<Submission, CancellationToken>((s, _) => capturedSubmission = s)
+            .Returns(Task.CompletedTask);
+
+        _clearanceCheckServiceMock.Setup(x => x.CheckAsync(
+                It.IsAny<Submission>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<ClearanceMatch>());
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        capturedSubmission.Should().NotBeNull();
+        capturedSubmission!.Status.Should().Be(SubmissionStatus.Received);
+        capturedSubmission.ClearanceStatus.Should().Be(ClearanceStatus.Passed);
+    }
+
+    [Fact]
+    public async Task Handle_WhenClearanceFails_SubmissionBecomesPendingClearance()
+    {
+        var command = new CreateSubmissionCommand(_tenantId, "Test Insured");
+
+        Submission? capturedSubmission = null;
+
+        _submissionRepositoryMock.Setup(x => x.GenerateSubmissionNumberAsync(
+                _tenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync("SUB-2024-000001");
+
+        _submissionRepositoryMock.Setup(x => x.AddAsync(
+                It.IsAny<Submission>(), It.IsAny<CancellationToken>()))
+            .Callback<Submission, CancellationToken>((s, _) => capturedSubmission = s)
+            .Returns(Task.CompletedTask);
+
+        _clearanceCheckServiceMock.Setup(x => x.CheckAsync(
+                It.IsAny<Submission>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Submission s, CancellationToken _) => new List<ClearanceMatch>
+            {
+                new(Guid.NewGuid(), s.Id, Guid.NewGuid(), "SUB-2024-000099",
+                    ClearanceMatchType.FeinMatch, 1.0, "FEIN match")
+            });
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        capturedSubmission.Should().NotBeNull();
+        capturedSubmission!.Status.Should().Be(SubmissionStatus.PendingClearance);
+        capturedSubmission.ClearanceStatus.Should().Be(ClearanceStatus.Failed);
+    }
+
+    [Fact]
+    public async Task Handle_WhenClearanceServiceThrows_SubmissionStillCreated()
+    {
+        var command = new CreateSubmissionCommand(_tenantId, "Test Insured");
+
+        _submissionRepositoryMock.Setup(x => x.GenerateSubmissionNumberAsync(
+                _tenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync("SUB-2024-000001");
+
+        _submissionRepositoryMock.Setup(x => x.AddAsync(
+                It.IsAny<Submission>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _clearanceCheckServiceMock.Setup(x => x.CheckAsync(
+                It.IsAny<Submission>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Service error"));
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        _submissionRepositoryMock.Verify(x => x.AddAsync(
+            It.IsAny<Submission>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 }

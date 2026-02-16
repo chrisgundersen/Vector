@@ -204,6 +204,7 @@ public class DatabaseSeeder(VectorDbContext context, ILogger<DatabaseSeeder> log
         // 1. Draft submission - ABC Insurance Agency
         var draft = CreateSubmission(DefaultTenantId, "SUB-2024-000001", "Acme Manufacturing Inc");
         draft.UpdateProducerInfo(Producer1Id, "ABC Insurance Agency", "submissions@abcinsurance.com");
+        draft.Insured.UpdateFein("12-3456789");
         submissions.Add(draft);
 
         // 2. Received submission - XYZ Brokers
@@ -302,6 +303,25 @@ public class DatabaseSeeder(VectorDbContext context, ILogger<DatabaseSeeder> log
         AddDataCenterLocations(tenant2Sub2);
         tenant2Sub2.UpdateScores(75, 70, 82);
         submissions.Add(tenant2Sub2);
+
+        // 11. PendingClearance - duplicate FEIN found
+        var pendingClearance = CreateSubmission(DefaultTenantId, "SUB-2024-000011", "Acme Mfg Inc");
+        pendingClearance.UpdateProducerInfo(Producer2Id, "XYZ Brokers Inc", "newbusiness@xyzbrokers.com");
+        pendingClearance.Insured.UpdateFein("12-3456789");
+        pendingClearance.MarkAsReceived();
+        AddManufacturingCoverages(pendingClearance);
+        // Simulate clearance failure by creating a match against the first submission
+        var clearanceMatch = new ClearanceMatch(
+            Guid.NewGuid(),
+            pendingClearance.Id,
+            draft.Id,
+            draft.SubmissionNumber,
+            ClearanceMatchType.FeinMatch,
+            1.0,
+            "Exact FEIN match: 123456789");
+        pendingClearance.CompleteClearance([clearanceMatch]);
+        pendingClearance.UpdateScores(80, 70, 85);
+        submissions.Add(pendingClearance);
 
         foreach (var submission in submissions)
         {

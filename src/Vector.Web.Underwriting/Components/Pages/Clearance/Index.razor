@@ -1,0 +1,192 @@
+@page "/clearance"
+@using MediatR
+@using Microsoft.AspNetCore.SignalR.Client
+@using Vector.Application.Submissions.DTOs
+@using Vector.Application.Submissions.Queries
+@inject IMediator Mediator
+@inject NavigationManager Navigation
+@implements IAsyncDisposable
+@attribute [Authorize]
+
+<PageTitle>Clearance Queue - Vector</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1>Clearance Queue</h1>
+            <p class="text-muted mb-0">
+                @if (_hubConnection?.State == HubConnectionState.Connected)
+                {
+                    <span class="badge bg-success me-2">
+                        <i class="bi bi-broadcast"></i> Live
+                    </span>
+                }
+                else
+                {
+                    <span class="badge bg-warning me-2">
+                        <i class="bi bi-broadcast"></i> Connecting...
+                    </span>
+                }
+                <span>@(_submissions?.Count ?? 0) submissions pending clearance review</span>
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary" @onclick="RefreshAsync">
+                <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+            </button>
+        </div>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (_submissions is null || _submissions.Count == 0)
+    {
+        <div class="text-center py-5">
+            <i class="bi bi-check-circle display-1 text-success"></i>
+            <h3 class="mt-3">No Submissions Pending Clearance</h3>
+            <p class="text-muted">All submissions have passed clearance or been reviewed.</p>
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Submission #</th>
+                            <th>Insured Name</th>
+                            <th>Received</th>
+                            <th>Clearance Status</th>
+                            <th>Producer</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var submission in _submissions)
+                        {
+                            <tr class="cursor-pointer" @onclick="() => ViewSubmission(submission.Id)">
+                                <td>
+                                    <strong>@submission.SubmissionNumber</strong>
+                                </td>
+                                <td>@submission.InsuredName</td>
+                                <td>@submission.ReceivedAt.ToString("g")</td>
+                                <td>
+                                    <span class="badge bg-warning text-dark">
+                                        <i class="bi bi-exclamation-triangle me-1"></i>Failed
+                                    </span>
+                                </td>
+                                <td>@(submission.AssignedUnderwriterName ?? "-")</td>
+                                <td class="text-end">
+                                    <a href="submissions/@submission.Id" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-eye me-1"></i>Review
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private HubConnection? _hubConnection;
+    private bool _loading = true;
+    private IReadOnlyList<SubmissionSummaryDto>? _submissions;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSubmissionsAsync();
+        await StartHubConnectionAsync();
+    }
+
+    private async Task StartHubConnectionAsync()
+    {
+        _hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/hubs/submissions"))
+            .WithAutomaticReconnect()
+            .Build();
+
+        _hubConnection.On<object>("SubmissionUpdated", async (_) =>
+        {
+            await InvokeAsync(async () =>
+            {
+                await LoadSubmissionsAsync();
+                StateHasChanged();
+            });
+        });
+
+        _hubConnection.On<object>("ClearanceCompleted", async (_) =>
+        {
+            await InvokeAsync(async () =>
+            {
+                await LoadSubmissionsAsync();
+                StateHasChanged();
+            });
+        });
+
+        _hubConnection.Reconnected += async (_) =>
+        {
+            await InvokeAsync(async () =>
+            {
+                await LoadSubmissionsAsync();
+                StateHasChanged();
+            });
+        };
+
+        try
+        {
+            await _hubConnection.StartAsync();
+        }
+        catch
+        {
+            // SignalR connection is optional; page still works without it
+        }
+    }
+
+    private async Task LoadSubmissionsAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        try
+        {
+            _submissions = await Mediator.Send(new GetClearanceQueueQuery());
+        }
+        catch
+        {
+            _submissions = [];
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RefreshAsync()
+    {
+        await LoadSubmissionsAsync();
+    }
+
+    private void ViewSubmission(Guid id)
+    {
+        Navigation.NavigateTo($"submissions/{id}");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_hubConnection is not null)
+        {
+            await _hubConnection.DisposeAsync();
+        }
+    }
+}

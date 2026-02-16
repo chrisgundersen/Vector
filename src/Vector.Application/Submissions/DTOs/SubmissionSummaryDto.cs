@@ -16,4 +16,5 @@ public sealed record SubmissionSummaryDto(
     int? DataQualityScore,
     int CoverageCount,
     int LocationCount,
-    decimal? TotalInsuredValue);
+    decimal? TotalInsuredValue,
+    string ClearanceStatus);

@@ -527,5 +527,9 @@ public class SubmissionsControllerTests
             Coverages: Array.Empty<CoverageDto>(),
             Locations: Array.Empty<ExposureLocationDto>(),
             Losses: Array.Empty<LossHistoryDto>(),
-            TotalIncurredLosses: null);
+            TotalIncurredLosses: null,
+            ClearanceStatus: "Passed",
+            ClearanceCheckedAt: DateTime.UtcNow.AddHours(-1),
+            ClearanceMatches: Array.Empty<ClearanceMatchDto>(),
+            ClearanceOverrideReason: null);
 }

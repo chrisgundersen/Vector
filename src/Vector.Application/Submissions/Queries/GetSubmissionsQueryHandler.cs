@@ -55,7 +55,8 @@ public sealed class GetSubmissionsQueryHandler(
             s.DataQualityScore,
             s.Coverages.Count,
             s.Locations.Count,
-            s.Locations.Sum(l => l.TotalInsuredValue.Amount))).ToList();
+            s.Locations.Sum(l => l.TotalInsuredValue.Amount),
+            s.ClearanceStatus.ToString())).ToList();
 
         return Result<SubmissionsPagedResult>.Success(new SubmissionsPagedResult(
             summaries,
