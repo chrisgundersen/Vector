@@ -1,0 +1,214 @@
+@page "/admin/pairings/create"
+@attribute [Authorize]
+@using MediatR
+@using Microsoft.Extensions.Logging
+@using Vector.Application.Routing.Commands
+@using Vector.Domain.Submission.Enums
+@inject IMediator Mediator
+@inject NavigationManager Navigation
+@inject ILogger<Create> Logger
+
+<PageTitle>Create Pairing - Vector Admin</PageTitle>
+
+<div class="container-fluid">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/admin/pairings">Pairings</a></li>
+            <li class="breadcrumb-item active">Create</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Create New Pairing</h5>
+                </div>
+                <div class="card-body">
+                    <EditForm Model="@model" OnValidSubmit="HandleSubmit">
+                        <DataAnnotationsValidator />
+
+                        @if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            <div class="alert alert-danger">@errorMessage</div>
+                        }
+
+                        <h6>Producer Information</h6>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="producerName" class="form-label">Producer Name <span class="text-danger">*</span></label>
+                                <InputText id="producerName" class="form-control" @bind-Value="model.ProducerName" />
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="producerId" class="form-label">Producer ID <span class="text-danger">*</span></label>
+                                <InputText id="producerId" class="form-control" @bind-Value="producerIdText"
+                                    placeholder="Enter producer ID (GUID)" />
+                            </div>
+                        </div>
+
+                        <hr />
+                        <h6>Underwriter Information</h6>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="underwriterName" class="form-label">Underwriter Name <span class="text-danger">*</span></label>
+                                <InputText id="underwriterName" class="form-control" @bind-Value="model.UnderwriterName" />
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="underwriterId" class="form-label">Underwriter ID <span class="text-danger">*</span></label>
+                                <InputText id="underwriterId" class="form-control" @bind-Value="underwriterIdText"
+                                    placeholder="Enter underwriter ID (GUID)" />
+                            </div>
+                        </div>
+
+                        <hr />
+                        <h6>Pairing Settings</h6>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="priority" class="form-label">Priority</label>
+                                <InputNumber id="priority" class="form-control" @bind-Value="model.Priority" />
+                                <div class="form-text">Lower priority = evaluated first (1-1000)</div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="effectiveFrom" class="form-label">Effective From</label>
+                                <InputDate id="effectiveFrom" class="form-control" @bind-Value="model.EffectiveFrom" />
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="effectiveUntil" class="form-label">Effective Until</label>
+                                <InputDate id="effectiveUntil" class="form-control" @bind-Value="model.EffectiveUntil" />
+                            </div>
+                        </div>
+
+                        <hr />
+                        <h6>Coverage Types (Optional)</h6>
+                        <p class="text-muted small">Leave unchecked to apply to all coverage types.</p>
+                        <div class="row">
+                            @foreach (var coverageType in Enum.GetValues<CoverageType>())
+                            {
+                                <div class="col-md-4 mb-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="ct_@coverageType"
+                                               checked="@selectedCoverageTypes.Contains(coverageType)"
+                                               @onchange="e => ToggleCoverageType(coverageType, (bool?)e.Value ?? false)" />
+                                        <label class="form-check-label" for="ct_@coverageType">
+                                            @coverageType.ToString()
+                                        </label>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+
+                        <hr />
+                        <div class="d-flex justify-content-end gap-2">
+                            <a href="/admin/pairings" class="btn btn-outline-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+                                @if (isSubmitting)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                }
+                                Create Pairing
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h6>About Producer Pairings</h6>
+                    <p class="small text-muted">
+                        Producer-underwriter pairings ensure that submissions from specific producers
+                        are automatically routed to their designated underwriters.
+                    </p>
+                    <hr />
+                    <h6>Priority</h6>
+                    <p class="small text-muted mb-0">
+                        When multiple pairings match, the one with the lowest priority number is selected.
+                        This allows for specific coverage type pairings to override general pairings.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private CreatePairingModel model = new();
+    private bool isSubmitting;
+    private string? errorMessage;
+    private string producerIdText = string.Empty;
+    private string underwriterIdText = string.Empty;
+    private HashSet<CoverageType> selectedCoverageTypes = [];
+
+    private void ToggleCoverageType(CoverageType coverageType, bool isChecked)
+    {
+        if (isChecked)
+        {
+            selectedCoverageTypes.Add(coverageType);
+        }
+        else
+        {
+            selectedCoverageTypes.Remove(coverageType);
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        isSubmitting = true;
+        errorMessage = null;
+
+        try
+        {
+            if (!Guid.TryParse(producerIdText, out var producerId))
+            {
+                errorMessage = "Please enter a valid Producer ID (GUID format).";
+                return;
+            }
+
+            if (!Guid.TryParse(underwriterIdText, out var underwriterId))
+            {
+                errorMessage = "Please enter a valid Underwriter ID (GUID format).";
+                return;
+            }
+
+            var command = new CreatePairingCommand(
+                producerId,
+                model.ProducerName,
+                underwriterId,
+                model.UnderwriterName,
+                model.Priority,
+                model.EffectiveFrom,
+                model.EffectiveUntil,
+                selectedCoverageTypes.Select(ct => ct.ToString()).ToList());
+
+            var result = await Mediator.Send(command);
+
+            if (result.IsSuccess)
+            {
+                Navigation.NavigateTo($"/admin/pairings/{result.Value}");
+            }
+            else
+            {
+                errorMessage = result.Error.Description;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "An unexpected error occurred. Please try again.";
+            Logger.LogError(ex, "An error occurred while creating the pairing.");
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private class CreatePairingModel
+    {
+        public string ProducerName { get; set; } = string.Empty;
+        public string UnderwriterName { get; set; } = string.Empty;
+        public int Priority { get; set; } = 100;
+        public DateTime EffectiveFrom { get; set; } = DateTime.UtcNow.Date;
+        public DateTime? EffectiveUntil { get; set; }
+    }
+}

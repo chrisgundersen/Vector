@@ -1,0 +1,273 @@
+@page "/admin/pairings/{Id:guid}"
+@attribute [Authorize]
+@using MediatR
+@using Vector.Application.Routing.Commands
+@using Vector.Application.Routing.DTOs
+@using Vector.Application.Routing.Queries
+@inject IMediator Mediator
+@inject NavigationManager Navigation
+
+<PageTitle>Pairing Details - Vector Admin</PageTitle>
+
+<div class="container-fluid">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/admin/pairings">Pairings</a></li>
+            <li class="breadcrumb-item active">@(pairing is not null ? $"{pairing.ProducerName} - {pairing.UnderwriterName}" : "Loading...")</li>
+        </ol>
+    </nav>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (pairing is null)
+    {
+        <div class="alert alert-danger">
+            Pairing not found.
+            <a href="/admin/pairings">Return to pairings list</a>.
+        </div>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div class="alert alert-success alert-dismissible fade show">
+                @successMessage
+                <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger alert-dismissible fade show">
+                @errorMessage
+                <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+            </div>
+        }
+
+        <div class="row mb-4">
+            <div class="col">
+                <div class="d-flex align-items-center gap-3">
+                    <h1 class="mb-0">Producer-Underwriter Pairing</h1>
+                    @if (pairing.IsActive)
+                    {
+                        <span class="badge bg-success fs-6">Active</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-secondary fs-6">Inactive</span>
+                    }
+                </div>
+            </div>
+            <div class="col-auto">
+                <div class="btn-group">
+                    <a href="/admin/pairings/@Id/edit" class="btn btn-outline-secondary">
+                        <i class="bi bi-pencil"></i> Edit
+                    </a>
+                    @if (!pairing.IsActive)
+                    {
+                        <button class="btn btn-success" @onclick="ActivatePairing" disabled="@isProcessing">
+                            <i class="bi bi-check-circle"></i> Activate
+                        </button>
+                    }
+                    @if (pairing.IsActive)
+                    {
+                        <button class="btn btn-warning" @onclick="DeactivatePairing" disabled="@isProcessing">
+                            <i class="bi bi-pause-circle"></i> Deactivate
+                        </button>
+                    }
+                    <button class="btn btn-outline-danger" @onclick="DeletePairing" disabled="@isProcessing">
+                        <i class="bi bi-trash"></i> Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-6">
+                <!-- Producer Card -->
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="bi bi-building me-2"></i>Producer</h5>
+                    </div>
+                    <div class="card-body">
+                        <h4>@pairing.ProducerName</h4>
+                        <p class="text-muted mb-0">
+                            <small>ID: @pairing.ProducerId</small>
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <!-- Underwriter Card -->
+                <div class="card mb-4">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0"><i class="bi bi-person me-2"></i>Underwriter</h5>
+                    </div>
+                    <div class="card-body">
+                        <h4>@pairing.UnderwriterName</h4>
+                        <p class="text-muted mb-0">
+                            <small>ID: @pairing.UnderwriterId</small>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-6">
+                <!-- Pairing Details Card -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0">Pairing Details</h6>
+                    </div>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">Priority</span>
+                            <strong>@pairing.Priority</strong>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">Effective From</span>
+                            <strong>@pairing.EffectiveFrom.ToString("MMM d, yyyy")</strong>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">Effective Until</span>
+                            <strong>@(pairing.EffectiveUntil?.ToString("MMM d, yyyy") ?? "No end date")</strong>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <!-- Coverage Types Card -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0">Coverage Types</h6>
+                    </div>
+                    <div class="card-body">
+                        @if (pairing.CoverageTypes.Count == 0)
+                        {
+                            <p class="text-muted mb-0">
+                                <i class="bi bi-check-circle text-success me-1"></i>
+                                Applies to all coverage types
+                            </p>
+                        }
+                        else
+                        {
+                            <div class="d-flex flex-wrap gap-2">
+                                @foreach (var coverageType in pairing.CoverageTypes)
+                                {
+                                    <span class="badge bg-info">@coverageType</span>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private PairingDto? pairing;
+    private bool isLoading = true;
+    private bool isProcessing;
+    private string? errorMessage;
+    private string? successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPairing();
+    }
+
+    private async Task LoadPairing()
+    {
+        isLoading = true;
+        try
+        {
+            pairing = await Mediator.Send(new GetPairingQuery(Id));
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task ActivatePairing()
+    {
+        isProcessing = true;
+        errorMessage = null;
+
+        try
+        {
+            var result = await Mediator.Send(new ActivatePairingCommand(Id));
+            if (result.IsSuccess)
+            {
+                successMessage = "Pairing activated successfully.";
+                await LoadPairing();
+            }
+            else
+            {
+                errorMessage = result.Error.Description;
+            }
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private async Task DeactivatePairing()
+    {
+        isProcessing = true;
+        errorMessage = null;
+
+        try
+        {
+            var result = await Mediator.Send(new DeactivatePairingCommand(Id));
+            if (result.IsSuccess)
+            {
+                successMessage = "Pairing deactivated successfully.";
+                await LoadPairing();
+            }
+            else
+            {
+                errorMessage = result.Error.Description;
+            }
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private async Task DeletePairing()
+    {
+        isProcessing = true;
+        errorMessage = null;
+
+        try
+        {
+            var result = await Mediator.Send(new DeletePairingCommand(Id));
+            if (result.IsSuccess)
+            {
+                Navigation.NavigateTo("/admin/pairings");
+            }
+            else
+            {
+                errorMessage = result.Error.Description;
+            }
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+}

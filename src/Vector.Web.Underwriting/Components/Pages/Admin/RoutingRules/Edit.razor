@@ -1,0 +1,261 @@
+@page "/admin/routing/{Id:guid}/edit"
+@attribute [Authorize]
+@using MediatR
+@using Microsoft.Extensions.Logging
+@using Vector.Application.Routing.Commands
+@using Vector.Application.Routing.DTOs
+@using Vector.Application.Routing.Queries
+@using Vector.Domain.Routing.Enums
+@inject IMediator Mediator
+@inject NavigationManager Navigation
+@inject ILogger<Edit> Logger
+
+<PageTitle>Edit Routing Rule - Vector Admin</PageTitle>
+
+<div class="container-fluid">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/admin/routing">Routing Rules</a></li>
+            <li class="breadcrumb-item"><a href="/admin/routing/@Id">@(rule?.Name ?? "...")</a></li>
+            <li class="breadcrumb-item active">Edit</li>
+        </ol>
+    </nav>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (rule is null)
+    {
+        <div class="alert alert-danger">
+            Routing rule not found.
+            <a href="/admin/routing">Return to routing rules list</a>.
+        </div>
+    }
+    else if (rule.Status == "Archived")
+    {
+        <div class="alert alert-warning">
+            Archived routing rules cannot be edited.
+            <a href="/admin/routing/@Id">Return to rule details</a>.
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Edit Routing Rule</h5>
+                    </div>
+                    <div class="card-body">
+                        <EditForm Model="@model" OnValidSubmit="HandleSubmit">
+                            <DataAnnotationsValidator />
+
+                            @if (!string.IsNullOrEmpty(errorMessage))
+                            {
+                                <div class="alert alert-danger">@errorMessage</div>
+                            }
+
+                            <div class="mb-3">
+                                <label for="name" class="form-label">Name <span class="text-danger">*</span></label>
+                                <InputText id="name" class="form-control" @bind-Value="model.Name" />
+                                <ValidationMessage For="@(() => model.Name)" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="description" class="form-label">Description</label>
+                                <InputTextArea id="description" class="form-control" rows="3" @bind-Value="model.Description" />
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="strategy" class="form-label">Routing Strategy <span class="text-danger">*</span></label>
+                                    <InputSelect id="strategy" class="form-select" @bind-Value="model.Strategy">
+                                        @foreach (var strategy in Enum.GetValues<RoutingStrategy>())
+                                        {
+                                            <option value="@strategy">@GetStrategyDisplayName(strategy)</option>
+                                        }
+                                    </InputSelect>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="priority" class="form-label">Priority</label>
+                                    <InputNumber id="priority" class="form-control" @bind-Value="model.Priority" />
+                                    <div class="form-text">Lower priority = evaluated first (1-1000)</div>
+                                </div>
+                            </div>
+
+                            @if (model.Strategy == RoutingStrategy.Direct)
+                            {
+                                <hr />
+                                <h6>Target Assignment</h6>
+                                <p class="text-muted small">Direct routing requires specifying the target underwriter.</p>
+
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="targetUnderwriter" class="form-label">Target Underwriter</label>
+                                        <InputText id="targetUnderwriter" class="form-control" @bind-Value="model.TargetUnderwriterName"
+                                            placeholder="Enter underwriter name" />
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="targetUnderwriterId" class="form-label">Underwriter ID</label>
+                                        <InputText id="targetUnderwriterId" class="form-control" @bind-Value="targetUnderwriterIdText"
+                                            placeholder="Enter underwriter ID (GUID)" />
+                                    </div>
+                                </div>
+                            }
+
+                            <hr />
+                            <div class="d-flex justify-content-end gap-2">
+                                <a href="/admin/routing/@Id" class="btn btn-outline-secondary">Cancel</a>
+                                <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+                                    @if (isSubmitting)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-1"></span>
+                                    }
+                                    Save Changes
+                                </button>
+                            </div>
+                        </EditForm>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <h6>Current Status</h6>
+                        <p>
+                            <span class="badge @GetStatusBadgeClass(rule.Status) fs-6">@rule.Status</span>
+                        </p>
+                        <hr />
+                        <h6>Routing Strategies</h6>
+                        <ul class="small text-muted mb-0">
+                            <li><strong>Direct:</strong> Route to a specific underwriter</li>
+                            <li><strong>Producer Pairing:</strong> Use producer-underwriter pairings</li>
+                            <li><strong>Round Robin:</strong> Distribute evenly among team</li>
+                            <li><strong>Load Balanced:</strong> Route based on workload</li>
+                            <li><strong>Specialty Based:</strong> Route based on expertise</li>
+                            <li><strong>Manual Queue:</strong> Place in queue for manual assignment</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private RoutingRuleDto? rule;
+    private EditRoutingRuleModel model = new();
+    private bool isLoading = true;
+    private bool isSubmitting;
+    private string? errorMessage;
+    private string targetUnderwriterIdText = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        try
+        {
+            rule = await Mediator.Send(new GetRoutingRuleQuery(Id));
+            if (rule is not null)
+            {
+                model = new EditRoutingRuleModel
+                {
+                    Name = rule.Name,
+                    Description = rule.Description,
+                    Strategy = Enum.TryParse<RoutingStrategy>(rule.Strategy, out var s) ? s : RoutingStrategy.Direct,
+                    Priority = rule.Priority,
+                    TargetUnderwriterName = rule.TargetUnderwriterName
+                };
+                targetUnderwriterIdText = rule.TargetUnderwriterId?.ToString() ?? string.Empty;
+            }
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        isSubmitting = true;
+        errorMessage = null;
+
+        try
+        {
+            Guid? targetUnderwriterId = null;
+            if (!string.IsNullOrEmpty(targetUnderwriterIdText) && Guid.TryParse(targetUnderwriterIdText, out var parsedId))
+            {
+                targetUnderwriterId = parsedId;
+            }
+
+            var command = new UpdateRoutingRuleCommand(
+                Id,
+                model.Name,
+                model.Description ?? string.Empty,
+                model.Strategy,
+                model.Priority,
+                targetUnderwriterId,
+                model.TargetUnderwriterName,
+                null,
+                null);
+
+            var result = await Mediator.Send(command);
+
+            if (result.IsSuccess)
+            {
+                Navigation.NavigateTo($"/admin/routing/{Id}");
+            }
+            else
+            {
+                errorMessage = result.Error.Description;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "An unexpected error occurred. Please try again.";
+            Logger.LogError(ex, "An error occurred while updating the routing rule.");
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private static string GetStrategyDisplayName(RoutingStrategy strategy) => strategy switch
+    {
+        RoutingStrategy.Direct => "Direct Assignment",
+        RoutingStrategy.ProducerPairing => "Producer Pairing",
+        RoutingStrategy.RoundRobin => "Round Robin",
+        RoutingStrategy.LoadBalanced => "Load Balanced",
+        RoutingStrategy.SpecialtyBased => "Specialty Based",
+        RoutingStrategy.ManualQueue => "Manual Queue",
+        _ => strategy.ToString()
+    };
+
+    private static string GetStatusBadgeClass(string status) => status switch
+    {
+        "Draft" => "bg-secondary",
+        "Active" => "bg-success",
+        "Inactive" => "bg-warning text-dark",
+        "Archived" => "bg-dark",
+        _ => "bg-light text-dark"
+    };
+
+    private class EditRoutingRuleModel
+    {
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public RoutingStrategy Strategy { get; set; } = RoutingStrategy.Direct;
+        public int Priority { get; set; } = 100;
+        public string? TargetUnderwriterName { get; set; }
+    }
+}

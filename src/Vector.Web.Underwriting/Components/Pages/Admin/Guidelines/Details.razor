@@ -1,0 +1,566 @@
+@page "/admin/guidelines/{Id:guid}"
+@attribute [Authorize]
+@using MediatR
+@using Vector.Application.UnderwritingGuidelines.Commands
+@using Vector.Application.UnderwritingGuidelines.DTOs
+@using Vector.Application.UnderwritingGuidelines.Queries
+@using Vector.Domain.UnderwritingGuidelines.Enums
+@inject IMediator Mediator
+@inject NavigationManager Navigation
+
+<PageTitle>Guideline Details - Vector Admin</PageTitle>
+
+<div class="container-fluid">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/admin/guidelines">Guidelines</a></li>
+            <li class="breadcrumb-item active">@(guideline?.Name ?? "Loading...")</li>
+        </ol>
+    </nav>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (guideline is null)
+    {
+        <div class="alert alert-danger">
+            Guideline not found.
+            <a href="/admin/guidelines">Return to guidelines list</a>.
+        </div>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div class="alert alert-success alert-dismissible fade show">
+                @successMessage
+                <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger alert-dismissible fade show">
+                @errorMessage
+                <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+            </div>
+        }
+
+        <div class="row mb-4">
+            <div class="col">
+                <div class="d-flex align-items-center gap-3">
+                    <h1 class="mb-0">@guideline.Name</h1>
+                    <span class="badge @GetStatusBadgeClass(guideline.Status) fs-6">@guideline.Status</span>
+                </div>
+                @if (!string.IsNullOrEmpty(guideline.Description))
+                {
+                    <p class="text-muted mt-2">@guideline.Description</p>
+                }
+            </div>
+            <div class="col-auto">
+                <div class="btn-group">
+                    @if (guideline.Status == "Draft" || guideline.Status == "Inactive")
+                    {
+                        <button class="btn btn-success" @onclick="ActivateGuideline" disabled="@isProcessing">
+                            <i class="bi bi-check-circle"></i> Activate
+                        </button>
+                    }
+                    @if (guideline.Status == "Active")
+                    {
+                        <button class="btn btn-warning" @onclick="DeactivateGuideline" disabled="@isProcessing">
+                            <i class="bi bi-pause-circle"></i> Deactivate
+                        </button>
+                    }
+                    <a href="/admin/guidelines/@Id/edit" class="btn btn-outline-primary">
+                        <i class="bi bi-pencil"></i> Edit
+                    </a>
+                    @if (guideline.Status != "Archived")
+                    {
+                        <button class="btn btn-outline-danger" @onclick="DeleteGuideline" disabled="@isProcessing">
+                            <i class="bi bi-archive"></i> Archive
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-8">
+                <!-- Rules Section -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Rules (@guideline.Rules.Count)</h5>
+                        @if (guideline.Status != "Archived")
+                        {
+                            <button class="btn btn-sm btn-primary" @onclick="ShowAddRuleModal">
+                                <i class="bi bi-plus-lg"></i> Add Rule
+                            </button>
+                        }
+                    </div>
+                    <div class="card-body">
+                        @if (guideline.Rules.Count == 0)
+                        {
+                            <div class="text-center py-4 text-muted">
+                                <i class="bi bi-inbox fs-1"></i>
+                                <p class="mt-2">No rules defined yet.</p>
+                                <p class="small">Add rules to define eligibility criteria and scoring.</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Priority</th>
+                                            <th>Name</th>
+                                            <th>Type</th>
+                                            <th>Action</th>
+                                            <th>Status</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var rule in guideline.Rules.OrderBy(r => r.Priority))
+                                        {
+                                            <tr>
+                                                <td>@rule.Priority</td>
+                                                <td>
+                                                    <strong>@rule.Name</strong>
+                                                    @if (!string.IsNullOrEmpty(rule.Description))
+                                                    {
+                                                        <br />
+                                                        <small class="text-muted">@rule.Description</small>
+                                                    }
+                                                </td>
+                                                <td><span class="badge bg-info">@rule.Type</span></td>
+                                                <td>
+                                                    <span class="badge @GetActionBadgeClass(rule.Action)">@rule.Action</span>
+                                                    @if (rule.ScoreAdjustment.HasValue)
+                                                    {
+                                                        <span class="badge bg-secondary">@(rule.ScoreAdjustment > 0 ? "+" : "")@rule.ScoreAdjustment pts</span>
+                                                    }
+                                                    @if (rule.PricingModifier.HasValue)
+                                                    {
+                                                        <span class="badge bg-secondary">x@rule.PricingModifier.Value.ToString("F2")</span>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    @if (rule.IsActive)
+                                                    {
+                                                        <span class="badge bg-success">Active</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="badge bg-secondary">Inactive</span>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    @if (guideline.Status != "Archived")
+                                                    {
+                                                        <button class="btn btn-sm btn-outline-danger"
+                                                                @onclick="() => RemoveRule(rule.Id)"
+                                                                disabled="@isProcessing"
+                                                                title="Remove Rule">
+                                                            <i class="bi bi-trash"></i>
+                                                        </button>
+                                                    }
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <!-- Guideline Info Card -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0">Guideline Information</h6>
+                    </div>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">Version</span>
+                            <strong>v@guideline.Version</strong>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">Effective Date</span>
+                            <strong>@(guideline.EffectiveDate?.ToString("MMM d, yyyy") ?? "Not set")</strong>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">Expiration Date</span>
+                            <strong>@(guideline.ExpirationDate?.ToString("MMM d, yyyy") ?? "Not set")</strong>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">Created</span>
+                            <strong>@guideline.CreatedAt.ToString("MMM d, yyyy")</strong>
+                        </li>
+                        @if (guideline.LastModifiedAt.HasValue)
+                        {
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span class="text-muted">Last Modified</span>
+                                <strong>@guideline.LastModifiedAt.Value.ToString("MMM d, yyyy")</strong>
+                            </li>
+                        }
+                    </ul>
+                </div>
+
+                <!-- Applicability Card -->
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">Applicability</h6>
+                    </div>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item">
+                            <div class="text-muted small">Coverage Types</div>
+                            @if (!string.IsNullOrEmpty(guideline.ApplicableCoverageTypes))
+                            {
+                                @foreach (var type in guideline.ApplicableCoverageTypes.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                                {
+                                    <span class="badge bg-light text-dark me-1">@type.Trim()</span>
+                                }
+                            }
+                            else
+                            {
+                                <em class="text-muted">All coverage types</em>
+                            }
+                        </li>
+                        <li class="list-group-item">
+                            <div class="text-muted small">States</div>
+                            @if (!string.IsNullOrEmpty(guideline.ApplicableStates))
+                            {
+                                @foreach (var state in guideline.ApplicableStates.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                                {
+                                    <span class="badge bg-light text-dark me-1">@state.Trim()</span>
+                                }
+                            }
+                            else
+                            {
+                                <em class="text-muted">All states</em>
+                            }
+                        </li>
+                        <li class="list-group-item">
+                            <div class="text-muted small">NAICS Codes</div>
+                            @if (!string.IsNullOrEmpty(guideline.ApplicableNAICSCodes))
+                            {
+                                @foreach (var naicsCode in guideline.ApplicableNAICSCodes.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                                {
+                                    <span class="badge bg-light text-dark me-1">@naicsCode.Trim()</span>
+                                }
+                            }
+                            else
+                            {
+                                <em class="text-muted">All industries</em>
+                            }
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Rule Modal -->
+        @if (showAddRuleModal)
+        {
+            <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Add Rule</h5>
+                            <button type="button" class="btn-close" @onclick="HideAddRuleModal"></button>
+                        </div>
+                        <EditForm Model="@newRule" OnValidSubmit="AddRule">
+                            <div class="modal-body">
+                                <DataAnnotationsValidator />
+
+                                <div class="row">
+                                    <div class="col-md-8 mb-3">
+                                        <label class="form-label">Rule Name <span class="text-danger">*</span></label>
+                                        <InputText class="form-control" @bind-Value="newRule.Name" />
+                                        <ValidationMessage For="@(() => newRule.Name)" />
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label class="form-label">Priority</label>
+                                        <InputNumber class="form-control" @bind-Value="newRule.Priority" />
+                                        <div class="form-text">Lower = evaluated first</div>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Description</label>
+                                    <InputTextArea class="form-control" rows="2" @bind-Value="newRule.Description" />
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Type <span class="text-danger">*</span></label>
+                                        <InputSelect class="form-select" @bind-Value="newRule.Type">
+                                            @foreach (var type in Enum.GetValues<RuleType>())
+                                            {
+                                                <option value="@type">@type</option>
+                                            }
+                                        </InputSelect>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Action <span class="text-danger">*</span></label>
+                                        <InputSelect class="form-select" @bind-Value="newRule.Action">
+                                            @foreach (var action in Enum.GetValues<RuleAction>())
+                                            {
+                                                <option value="@action">@action</option>
+                                            }
+                                        </InputSelect>
+                                    </div>
+                                </div>
+
+                                @if (newRule.Action == RuleAction.AdjustScore)
+                                {
+                                    <div class="mb-3">
+                                        <label class="form-label">Score Adjustment (-100 to +100)</label>
+                                        <InputNumber class="form-control" @bind-Value="newRule.ScoreAdjustment" />
+                                    </div>
+                                }
+
+                                @if (newRule.Action == RuleAction.ApplyModifier)
+                                {
+                                    <div class="mb-3">
+                                        <label class="form-label">Pricing Modifier (e.g., 1.25 = +25%)</label>
+                                        <InputNumber class="form-control" @bind-Value="newRule.PricingModifier" />
+                                    </div>
+                                }
+
+                                <div class="mb-3">
+                                    <label class="form-label">Message</label>
+                                    <InputText class="form-control" @bind-Value="newRule.Message"
+                                        placeholder="Message to display when rule triggers" />
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-outline-secondary" @onclick="HideAddRuleModal">Cancel</button>
+                                <button type="submit" class="btn btn-primary" disabled="@isProcessing">
+                                    @if (isProcessing)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-1"></span>
+                                    }
+                                    Add Rule
+                                </button>
+                            </div>
+                        </EditForm>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private GuidelineDto? guideline;
+    private bool isLoading = true;
+    private bool isProcessing;
+    private string? errorMessage;
+    private string? successMessage;
+    private bool showAddRuleModal;
+    private AddRuleModel newRule = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadGuideline();
+    }
+
+    private async Task LoadGuideline()
+    {
+        isLoading = true;
+        try
+        {
+            guideline = await Mediator.Send(new GetGuidelineQuery(Id));
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task ActivateGuideline()
+    {
+        isProcessing = true;
+        errorMessage = null;
+
+        try
+        {
+            var result = await Mediator.Send(new ActivateGuidelineCommand(Id));
+            if (result.IsSuccess)
+            {
+                successMessage = "Guideline activated successfully.";
+                await LoadGuideline();
+            }
+            else
+            {
+                errorMessage = result.Error.Description;
+            }
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private async Task DeactivateGuideline()
+    {
+        isProcessing = true;
+        errorMessage = null;
+
+        try
+        {
+            var result = await Mediator.Send(new DeactivateGuidelineCommand(Id));
+            if (result.IsSuccess)
+            {
+                successMessage = "Guideline deactivated successfully.";
+                await LoadGuideline();
+            }
+            else
+            {
+                errorMessage = result.Error.Description;
+            }
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private async Task DeleteGuideline()
+    {
+        isProcessing = true;
+        errorMessage = null;
+
+        try
+        {
+            var result = await Mediator.Send(new DeleteGuidelineCommand(Id));
+            if (result.IsSuccess)
+            {
+                Navigation.NavigateTo("/admin/guidelines");
+            }
+            else
+            {
+                errorMessage = result.Error.Description;
+            }
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private void ShowAddRuleModal()
+    {
+        newRule = new AddRuleModel();
+        showAddRuleModal = true;
+    }
+
+    private void HideAddRuleModal()
+    {
+        showAddRuleModal = false;
+    }
+
+    private async Task AddRule()
+    {
+        isProcessing = true;
+        errorMessage = null;
+
+        try
+        {
+            var command = new AddRuleCommand(
+                Id,
+                newRule.Name,
+                newRule.Description,
+                newRule.Type,
+                newRule.Action,
+                newRule.Priority,
+                newRule.ScoreAdjustment,
+                newRule.PricingModifier,
+                newRule.Message);
+
+            var result = await Mediator.Send(command);
+            if (result.IsSuccess)
+            {
+                successMessage = "Rule added successfully.";
+                showAddRuleModal = false;
+                await LoadGuideline();
+            }
+            else
+            {
+                errorMessage = result.Error.Description;
+            }
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private async Task RemoveRule(Guid ruleId)
+    {
+        isProcessing = true;
+        errorMessage = null;
+
+        try
+        {
+            var result = await Mediator.Send(new RemoveRuleCommand(Id, ruleId));
+            if (result.IsSuccess)
+            {
+                successMessage = "Rule removed successfully.";
+                await LoadGuideline();
+            }
+            else
+            {
+                errorMessage = result.Error.Description;
+            }
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private static string GetStatusBadgeClass(string status) => status switch
+    {
+        "Draft" => "bg-secondary",
+        "Active" => "bg-success",
+        "Inactive" => "bg-warning text-dark",
+        "Archived" => "bg-dark",
+        _ => "bg-light text-dark"
+    };
+
+    private static string GetActionBadgeClass(string action) => action switch
+    {
+        "Accept" => "bg-success",
+        "Decline" => "bg-danger",
+        "Refer" => "bg-warning text-dark",
+        "AdjustScore" => "bg-info",
+        "RequireInformation" => "bg-primary",
+        "ApplyModifier" => "bg-secondary",
+        _ => "bg-light text-dark"
+    };
+
+    private class AddRuleModel
+    {
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public RuleType Type { get; set; } = RuleType.Appetite;
+        public RuleAction Action { get; set; } = RuleAction.Accept;
+        public int Priority { get; set; }
+        public int? ScoreAdjustment { get; set; }
+        public decimal? PricingModifier { get; set; }
+        public string? Message { get; set; }
+    }
+}

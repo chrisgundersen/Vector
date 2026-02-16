@@ -1,0 +1,250 @@
+@page "/admin/pairings/{Id:guid}/edit"
+@attribute [Authorize]
+@using MediatR
+@using Microsoft.Extensions.Logging
+@using Vector.Application.Routing.Commands
+@using Vector.Application.Routing.DTOs
+@using Vector.Application.Routing.Queries
+@using Vector.Domain.Submission.Enums
+@inject IMediator Mediator
+@inject NavigationManager Navigation
+@inject ILogger<Edit> Logger
+
+<PageTitle>Edit Pairing - Vector Admin</PageTitle>
+
+<div class="container-fluid">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/admin/pairings">Pairings</a></li>
+            <li class="breadcrumb-item"><a href="/admin/pairings/@Id">@(pairing is not null ? $"{pairing.ProducerName} / {pairing.UnderwriterName}" : "...")</a></li>
+            <li class="breadcrumb-item active">Edit</li>
+        </ol>
+    </nav>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (pairing is null)
+    {
+        <div class="alert alert-danger">
+            Pairing not found.
+            <a href="/admin/pairings">Return to pairings list</a>.
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Edit Pairing</h5>
+                    </div>
+                    <div class="card-body">
+                        <EditForm Model="@model" OnValidSubmit="HandleSubmit">
+                            <DataAnnotationsValidator />
+
+                            @if (!string.IsNullOrEmpty(errorMessage))
+                            {
+                                <div class="alert alert-danger">@errorMessage</div>
+                            }
+
+                            <h6>Producer &amp; Underwriter</h6>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label text-muted">Producer</label>
+                                    <p class="form-control-plaintext">
+                                        <i class="bi bi-building me-1"></i>
+                                        <strong>@pairing.ProducerName</strong>
+                                    </p>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label text-muted">Underwriter</label>
+                                    <p class="form-control-plaintext">
+                                        <i class="bi bi-person me-1"></i>
+                                        <strong>@pairing.UnderwriterName</strong>
+                                    </p>
+                                </div>
+                            </div>
+
+                            <hr />
+                            <h6>Pairing Settings</h6>
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label for="priority" class="form-label">Priority</label>
+                                    <InputNumber id="priority" class="form-control" @bind-Value="model.Priority" />
+                                    <div class="form-text">Lower priority = evaluated first (1-1000)</div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="effectiveFrom" class="form-label">Effective From</label>
+                                    <InputDate id="effectiveFrom" class="form-control" @bind-Value="model.EffectiveFrom" />
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="effectiveUntil" class="form-label">Effective Until</label>
+                                    <InputDate id="effectiveUntil" class="form-control" @bind-Value="model.EffectiveUntil" />
+                                </div>
+                            </div>
+
+                            <hr />
+                            <h6>Coverage Types (Optional)</h6>
+                            <p class="text-muted small">Leave unchecked to apply to all coverage types.</p>
+                            <div class="row">
+                                @foreach (var coverageType in Enum.GetValues<CoverageType>())
+                                {
+                                    <div class="col-md-4 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="ct_@coverageType"
+                                                   checked="@selectedCoverageTypes.Contains(coverageType)"
+                                                   @onchange="e => ToggleCoverageType(coverageType, (bool?)e.Value ?? false)" />
+                                            <label class="form-check-label" for="ct_@coverageType">
+                                                @coverageType.ToString()
+                                            </label>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+
+                            <hr />
+                            <div class="d-flex justify-content-end gap-2">
+                                <a href="/admin/pairings/@Id" class="btn btn-outline-secondary">Cancel</a>
+                                <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+                                    @if (isSubmitting)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-1"></span>
+                                    }
+                                    Save Changes
+                                </button>
+                            </div>
+                        </EditForm>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <h6>Current Status</h6>
+                        <p>
+                            @if (pairing.IsActive)
+                            {
+                                <span class="badge bg-success fs-6">Active</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary fs-6">Inactive</span>
+                            }
+                        </p>
+                        <hr />
+                        <h6>About Editing</h6>
+                        <p class="small text-muted mb-0">
+                            You can change the priority, effective dates, and coverage types.
+                            Producer and underwriter assignments cannot be changed after creation.
+                            To reassign, create a new pairing.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private PairingDto? pairing;
+    private EditPairingModel model = new();
+    private bool isLoading = true;
+    private bool isSubmitting;
+    private string? errorMessage;
+    private HashSet<CoverageType> selectedCoverageTypes = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        try
+        {
+            pairing = await Mediator.Send(new GetPairingQuery(Id));
+            if (pairing is not null)
+            {
+                model = new EditPairingModel
+                {
+                    Priority = pairing.Priority,
+                    EffectiveFrom = pairing.EffectiveFrom,
+                    EffectiveUntil = pairing.EffectiveUntil
+                };
+
+                foreach (var ct in pairing.CoverageTypes)
+                {
+                    if (Enum.TryParse<CoverageType>(ct, true, out var coverageType))
+                    {
+                        selectedCoverageTypes.Add(coverageType);
+                    }
+                }
+            }
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ToggleCoverageType(CoverageType coverageType, bool isChecked)
+    {
+        if (isChecked)
+        {
+            selectedCoverageTypes.Add(coverageType);
+        }
+        else
+        {
+            selectedCoverageTypes.Remove(coverageType);
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        isSubmitting = true;
+        errorMessage = null;
+
+        try
+        {
+            var command = new UpdatePairingCommand(
+                Id,
+                model.Priority,
+                model.EffectiveFrom,
+                model.EffectiveUntil,
+                selectedCoverageTypes.Select(ct => ct.ToString()).ToList());
+
+            var result = await Mediator.Send(command);
+
+            if (result.IsSuccess)
+            {
+                Navigation.NavigateTo($"/admin/pairings/{Id}");
+            }
+            else
+            {
+                errorMessage = result.Error.Description;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "An unexpected error occurred. Please try again.";
+            Logger.LogError(ex, "An error occurred while updating the pairing.");
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private class EditPairingModel
+    {
+        public int Priority { get; set; } = 100;
+        public DateTime EffectiveFrom { get; set; } = DateTime.UtcNow.Date;
+        public DateTime? EffectiveUntil { get; set; }
+    }
+}
