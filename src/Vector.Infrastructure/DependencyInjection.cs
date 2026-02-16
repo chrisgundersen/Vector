@@ -70,6 +70,7 @@ public static class DependencyInjection
         // Register Services
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
+        services.AddScoped<IDomainEventDispatcher, MediatRDomainEventDispatcher>();
 
         // Register external services (use mock for development)
         var useMockServices = configuration.GetValue<bool>("UseMockServices");

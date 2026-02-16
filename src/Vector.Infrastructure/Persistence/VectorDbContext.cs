@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.Extensions.DependencyInjection;
 using Vector.Application.Common.Interfaces;
 using Vector.Domain.Common;
 using Vector.Domain.DocumentProcessing.Aggregates;
@@ -17,7 +18,8 @@ namespace Vector.Infrastructure.Persistence;
 /// </summary>
 public class VectorDbContext(
     DbContextOptions<VectorDbContext> options,
-    ICurrentUserService currentUserService) : DbContext(options), IUnitOfWork
+    ICurrentUserService currentUserService,
+    IDomainEventDispatcher? domainEventDispatcher = null) : DbContext(options), IUnitOfWork
 {
     public DbSet<InboundEmail> InboundEmails => Set<InboundEmail>();
     public DbSet<ProcessingJob> ProcessingJobs => Set<ProcessingJob>();
@@ -63,7 +65,36 @@ public class VectorDbContext(
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         UpdateAuditableEntities();
-        return await base.SaveChangesAsync(cancellationToken);
+
+        var domainEvents = CollectDomainEvents();
+
+        var result = await base.SaveChangesAsync(cancellationToken);
+
+        if (domainEventDispatcher is not null && domainEvents.Count > 0)
+        {
+            await domainEventDispatcher.DispatchEventsAsync(domainEvents, cancellationToken);
+        }
+
+        return result;
+    }
+
+    private List<IDomainEvent> CollectDomainEvents()
+    {
+        var aggregatesWithEvents = ChangeTracker.Entries<AggregateRoot<Guid>>()
+            .Where(e => e.Entity.DomainEvents.Count > 0)
+            .Select(e => e.Entity)
+            .ToList();
+
+        var domainEvents = aggregatesWithEvents
+            .SelectMany(a => a.DomainEvents)
+            .ToList();
+
+        foreach (var aggregate in aggregatesWithEvents)
+        {
+            aggregate.ClearDomainEvents();
+        }
+
+        return domainEvents;
     }
 
     private void UpdateAuditableEntities()

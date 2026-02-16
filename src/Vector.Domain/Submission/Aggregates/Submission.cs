@@ -114,6 +114,7 @@ public sealed class Submission : AuditableAggregateRoot, IMultiTenantEntity
             Id,
             TenantId,
             ProcessingJobId,
+            SubmissionNumber,
             Insured.Name,
             ReceivedAt));
 

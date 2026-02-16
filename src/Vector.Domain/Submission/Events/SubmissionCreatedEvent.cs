@@ -9,5 +9,6 @@ public sealed record SubmissionCreatedEvent(
     Guid SubmissionId,
     Guid TenantId,
     Guid? ProcessingJobId,
+    string SubmissionNumber,
     string InsuredName,
     DateTime ReceivedAt) : DomainEvent;
