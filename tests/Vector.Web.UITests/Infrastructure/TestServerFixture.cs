@@ -107,7 +107,7 @@ public class TestServerFixture : IAsyncLifetime
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = "build --configuration Debug --no-restore -v q",
+            Arguments = "build --configuration Debug -v q",
             WorkingDirectory = projectPath,
             UseShellExecute = false,
             RedirectStandardOutput = true,
