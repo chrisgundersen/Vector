@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Vector.Application.Common.Interfaces;
@@ -39,14 +40,19 @@ public class VectorDbContext(
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(VectorDbContext).Assembly);
 
-        // Remove temporal table configuration for SQLite (not supported)
         if (Database.IsSqlite())
         {
+            // SQLite doesn't support temporal tables — remove from all entity types
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
             {
-                // SQLite doesn't support temporal tables
                 entityType.SetIsTemporal(false);
             }
+        }
+        else
+        {
+            // SQL Server: owned types sharing a temporal table must also be marked temporal
+            // with period columns matching the parent entity's period columns
+            PropagateTemporalToOwnedTypes(modelBuilder);
         }
 
         // Apply multi-tenant query filters
@@ -113,6 +119,53 @@ public class VectorDbContext(
         }
 
         return domainEvents;
+    }
+
+    /// <summary>
+    /// EF Core requires owned types sharing a temporal table to also be marked as temporal,
+    /// with period columns matching the parent entity. This method first normalizes period
+    /// column names to "PeriodStart"/"PeriodEnd" on all temporal entities (overriding any
+    /// convention-based prefixing), then propagates temporal to non-temporal owned types
+    /// sharing those tables.
+    /// </summary>
+    private static void PropagateTemporalToOwnedTypes(ModelBuilder modelBuilder)
+    {
+        var temporalTables = new HashSet<string>();
+
+        // First pass: normalize period column names on all existing temporal entities
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            if (!entityType.IsTemporal()) continue;
+
+            var tableName = entityType.GetTableName();
+            if (tableName is not null) temporalTables.Add(tableName);
+
+            SetPeriodColumnNames(entityType);
+        }
+
+        // Second pass: mark non-temporal owned types sharing a temporal table
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            if (entityType.IsTemporal() || !entityType.IsOwned()) continue;
+
+            var tableName = entityType.GetTableName();
+            if (tableName is null || !temporalTables.Contains(tableName)) continue;
+
+            entityType.SetIsTemporal(true);
+            SetPeriodColumnNames(entityType);
+        }
+    }
+
+    private static void SetPeriodColumnNames(IMutableEntityType entityType)
+    {
+        var startPropName = entityType.GetPeriodStartPropertyName();
+        var endPropName = entityType.GetPeriodEndPropertyName();
+
+        if (startPropName is not null)
+            entityType.FindProperty(startPropName)?.SetColumnName("PeriodStart");
+
+        if (endPropName is not null)
+            entityType.FindProperty(endPropName)?.SetColumnName("PeriodEnd");
     }
 
     private void UpdateAuditableEntities()

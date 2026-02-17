@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Vector.Domain.DocumentProcessing.Aggregates;
@@ -98,9 +99,14 @@ public class ProcessingJobConfiguration : IEntityTypeConfiguration<ProcessingJob
                 field.Property(f => f.PageNumber);
             });
 
-            // Validation errors stored as JSON array
-            doc.Property("_validationErrors")
-                .HasColumnName("ValidationErrors");
+            // Validation errors: explicit JSON converter avoids EF Core scaffolding bug
+            // with NullabilityInfoContext on List<string> backing fields
+            doc.Property<List<string>>("_validationErrors")
+                .HasColumnName("ValidationErrors")
+                .HasColumnType("nvarchar(max)")
+                .HasConversion(
+                    v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                    v => JsonSerializer.Deserialize<List<string>>(v, (JsonSerializerOptions?)null) ?? new List<string>());
         });
 
         // Indexes
